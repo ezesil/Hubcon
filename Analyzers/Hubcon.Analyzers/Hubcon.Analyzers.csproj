@@ -1,24 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<AssemblyName>HubconAnalyzers.DiagnosticSuppressors</AssemblyName>
-		<RootNamespace>HubconAnalyzers.DiagnosticSuppressors</RootNamespace>
-		<!-- Necesario para que Roslyn cargue supresores -->
+		<AssemblyName>Hubcon.Analyzers</AssemblyName>
+		<RootNamespace>Hubcon.Analyzers</RootNamespace>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-		<PackageOutputPath>../nupkgs</PackageOutputPath>
+		<PackageOutputPath>../../nupkgs</PackageOutputPath>
 
 		<IsPackable>true</IsPackable>
 
 		<!-- Empaquetar como NuGet -->
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<PackageId>HubconAnalyzers.DiagnosticSupressors</PackageId>
+		<PackageId>Hubcon.Analyzers</PackageId>
 		<Version>1.0.0</Version>
-		<Authors>ezedev</Authors>
-		<Company>ezedev</Company>
 		<Description></Description>
 		<PackageTags>analyzer</PackageTags>
-		<PackageOutputPath>../nupkgs</PackageOutputPath>
 	</PropertyGroup>
+
 	<ItemGroup>
 		<!-- Las APIs de Roslyn -->
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" />
@@ -32,8 +30,8 @@
 	<ItemGroup>
 		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
 	</ItemGroup>
-
+	
 	<ItemGroup>
-	  <ProjectReference Include="..\Hubcon.Shared.Abstractions.Standard\Hubcon.Shared.Abstractions.Standard.csproj" />
+	  <ProjectReference Include="..\..\Hubcon.Shared.Abstractions.Standard\Hubcon.Shared.Abstractions.Standard.csproj" />
 	</ItemGroup>
 </Project>
