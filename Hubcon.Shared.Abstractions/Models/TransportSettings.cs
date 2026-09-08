@@ -22,8 +22,8 @@ namespace Hubcon
         /// <inheritdoc cref="ITransportSettings.EnablePing" />
         public virtual bool EnablePing { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.PingOperationLimiterOptions" />
-        public virtual TokenBucketRateLimiterOptions? PingOperationLimiterOptions { get; set; }
+        /// <inheritdoc cref="ITransportSettings.PingOperationLimitPerSecond" />
+        public int? PingOperationLimitPerSecond { get; set; }
 
         /// <inheritdoc cref="ITransportSettings.EnablePong" />
         public virtual bool EnablePong { get; set; } = true;
@@ -37,8 +37,8 @@ namespace Hubcon
         /// <inheritdoc cref="ITransportSettings.CallOperationTimeout" />
         public virtual TimeSpan CallOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.CallOperationLimiterOptions" />
-        public virtual TokenBucketRateLimiterOptions? CallOperationLimiterOptions { get; set; }
+        /// <inheritdoc cref="ITransportSettings.CallOperationLimitPerSecond" />
+        public int? CallOperationLimitPerSecond { get; set; }
 
         /// <inheritdoc cref="ITransportSettings.InvokeOperationEnabled" />
         public virtual bool InvokeOperationEnabled { get; set; } = true;
@@ -46,8 +46,8 @@ namespace Hubcon
         /// <inheritdoc cref="ITransportSettings.InvokeOperationTimeout" />
         public virtual TimeSpan InvokeOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.InvokeOperationLimiterOptions" />
-        public virtual TokenBucketRateLimiterOptions? InvokeOperationLimiterOptions { get; set; }
+        /// <inheritdoc cref="ITransportSettings.InvokeOperationLimitPerSecond" />
+        public int? InvokeOperationLimitPerSecond { get; set; }
 
         /// <inheritdoc cref="ITransportSettings.StreamOperationEnabled" />
         public virtual bool StreamOperationEnabled { get; set; } = true;
@@ -55,8 +55,8 @@ namespace Hubcon
         /// <inheritdoc cref="ITransportSettings.StreamOperationTimeout" />
         public virtual TimeSpan StreamOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.StreamOperationLimiterOptions" />
-        public virtual TokenBucketRateLimiterOptions? StreamOperationLimiterOptions { get; set; }
+        /// <inheritdoc cref="ITransportSettings.StreamOperationLimitPerSecond" />
+        public int? StreamOperationLimitPerSecond { get; set; }
 
         /// <inheritdoc cref="ITransportSettings.IngestOperationEnabled" />
         public virtual bool IngestOperationEnabled { get; set; } = true;
@@ -64,8 +64,14 @@ namespace Hubcon
         /// <inheritdoc cref="ITransportSettings.IngestOperationTimeout" />
         public virtual TimeSpan IngestOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.IngestOperationLimiterOptions" />
-        public virtual TokenBucketRateLimiterOptions? IngestOperationLimiterOptions { get; set; }
+        /// <inheritdoc cref="ITransportSettings.IngestOperationLimitPerSecond" />
+        public int? IngestOperationLimitPerSecond { get; set; }
+        
+        /// <inheritdoc cref="ITransportSettings.ControlMessagesLimitPerSecond" />
+        public int? ControlMessagesLimitPerSecond { get; set; }
+        
+        /// <inheritdoc cref="ITransportSettings.ControlMessagesPerSecond" />
+        public int? ControlMessagesPerSecond { get; set; }
 
         /// <inheritdoc cref="ITransportSettings.RetryableMessagesEnabled" />
         public virtual bool RetryableMessagesEnabled { get; set; }
@@ -78,9 +84,9 @@ namespace Hubcon
 
         /// <inheritdoc cref="ITransportSettings.AllowRemoteCancellation" />
         public virtual bool AllowRemoteCancellation { get; set; }
-
-        /// <inheritdoc cref="ITransportSettings.TransportLimiterOptions" />
-        public virtual TokenBucketRateLimiterOptions? TransportLimiterOptions { get; set; }
+        
+        /// <inheritdoc cref="ITransportSettings.TransportLimitPerSecond" />
+        public int? TransportLimitPerSecond { get; set; }
 
         /// <inheritdoc cref="ITransportSettings.MethodOverloadingEnabled" />
         public virtual bool MethodOverloadingEnabled { get; set; }
@@ -96,9 +102,6 @@ namespace Hubcon
 
         /// <inheritdoc cref="ITransportSettings.CheckTokenExpirationOnMessageReceived" />
         public virtual bool CheckTokenExpirationOnMessageReceived { get; set; }
-
-        /// <inheritdoc cref="ITransportSettings.ControlMessagesRateLimiterOptions" />
-        public virtual TokenBucketRateLimiterOptions? ControlMessagesRateLimiterOptions { get; set; }
 
         /// <inheritdoc cref="ITransportSettings.ConnectionAuthHandlerType" />
         public virtual Type? ConnectionAuthHandlerType { get; set; }

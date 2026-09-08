@@ -5,282 +5,258 @@ using Hubcon.Shared.Abstractions.Interfaces;
 using Hubcon.Shared.Core.Websockets;
 using System.Reflection;
 using System.Threading.RateLimiting;
+using Hubcon.Shared.Abstractions.Models;
 
 #pragma warning disable CS1591
 namespace Hubcon.Server.Core.RateLimiting
 {
-    public class GlobalRateLimiterManager(
+    public sealed class GlobalRateLimiterManager(
         IOperationCache cache,
         IInternalServerOptions options,
         IOperationConfigRegistry operationConfigRegistry,
-        IOperationRegistry operationRegistry) : IGlobalRateLimiterManager
+        IOperationRegistry operationRegistry,
+        IRateLimitAuthority globalAuthority) // LocalAuthority registrado por defecto en DI
+        : IGlobalRateLimiterManager
     {
-        private readonly RateLimiter globalRateLimiter = new TokenBucketRateLimiter(options.GlobalRateLimiterOptions);
+        private readonly SettingsManager _settingsManager =
+            new(operationRegistry, operationConfigRegistry);
 
-        private readonly SettingsManager settingsManager =
-            new SettingsManager(operationRegistry, operationConfigRegistry);
+        // Resolución: per-transport override ?? global — un solo punto de decisión
+        private IRateLimitAuthority ResolveAuthority(HubconTransportAttribute transport) =>
+            options.TransportAuthorities.TryGetValue(transport.GetType(), out var authority)
+                ? authority
+                : globalAuthority;
 
-        public async ValueTask<bool> TryAcquireAsync(string anchorKey, MessageType type,
-            HubconTransportAttribute transport, IOperationRequest? operation = null, int permits = 1,
+        // ── TryAcquire principal ──────────────────────────────────────────
+        public ValueTask<bool> TryAcquireAsync(
+            string anchorKey,
+            MessageType type,
+            HubconTransportAttribute transport,
+            IOperationRequest? operation = null,
+            int permits = 1,
             CancellationToken cancellationToken = default)
         {
-            if (options.ThrottlingIsDisabled) return true;
+            if (options.ThrottlingIsDisabled) return new(true);
 
             try
             {
-                if (!(await globalRateLimiter.AcquireAsync(permits, cancellationToken)).IsAcquired)
-                {
-                    return false;
-                }
+                var authority = ResolveAuthority(transport);
+                var settings = GetTransportSettings(transport);
+                var token = transport.GetType().MetadataToken;
 
-                var typeLimiter = GetOrCreateLimiter(anchorKey, type, transport);
-                if (typeLimiter != null && !(await typeLimiter.AcquireAsync(permits, cancellationToken)).IsAcquired)
-                {
-                    return false;
-                }
+                // Capa 1 — Global por transporte
+                var globalKey = new RateLimiterKey(anchorKey, -1, token);
+                if (!authority.TryAcquire(globalKey, settings.GlobalLimit, settings.Window, permits))
+                    return new(false);
 
-                if (operation != null)
+                // Capa 2 — MessageType
+                var group = GetGroupKey(type);
+                if (group >= 0)
                 {
-                    var contractLimiter = GetOrCreateContractLimiter(anchorKey, operation, transport);
-                    if (contractLimiter != null &&
-                        !(await contractLimiter.AcquireAsync(permits, cancellationToken)).IsAcquired)
+                    var typeLimit = GetLimitFromSettings(settings, group);
+                    if (typeLimit.HasValue)
                     {
-                        return false;
-                    }
-
-                    var opLimiter = GetOrCreateOperationLimiter(anchorKey, operation, transport);
-                    if (opLimiter != null && !(await opLimiter.AcquireAsync(permits, cancellationToken)).IsAcquired)
-                    {
-                        return false;
+                        var typeKey = new RateLimiterKey(anchorKey, group, token);
+                        if (!authority.TryAcquire(typeKey, typeLimit.Value, settings.Window, permits))
+                            return new(false);
                     }
                 }
 
-                return true;
+                if (operation is null) return new(true);
+
+                // Capa 3 — Contract
+                if (!TryAcquireContractLimit(anchorKey, operation, transport, authority, settings, permits))
+                    return new(false);
+
+                // Capa 4 — Operation
+                if (!TryAcquireOperationLimit(anchorKey, operation, transport, authority, settings, permits))
+                    return new(false);
+
+                return new(true);
             }
-            catch (Exception)
+            catch
             {
-                return false;
+                return new(false);
             }
         }
 
-        public async ValueTask<bool> TryAcquireAsync(string anchorKey, MessageType type, Guid resourceId, HubconTransportAttribute transport, int permits = 1, CancellationToken cancellationToken = default)
+        // ── TryAcquire con Guid (linked operations) ───────────────────────
+        public ValueTask<bool> TryAcquireAsync(
+            string anchorKey,
+            MessageType type,
+            Guid resourceId,
+            HubconTransportAttribute transport,
+            int permits = 1,
+            CancellationToken cancellationToken = default)
         {
-            if (options.ThrottlingIsDisabled)
-                return true;
+            if (options.ThrottlingIsDisabled) return new(true);
 
             try
             {
-                // 1. Capa Global
-                await globalRateLimiter.AcquireAsync(permits, cancellationToken);
+                var authority = ResolveAuthority(transport);
+                var settings = GetTransportSettings(transport);
+                var token = transport.GetType().MetadataToken;
 
-                // 2. Capa por Tipo de Mensaje
-                var typeLimiter = GetOrCreateLimiter(anchorKey, type, transport);
-                if (typeLimiter != null) await typeLimiter.AcquireAsync(permits, cancellationToken);
+                // Capa 1 — Global
+                var globalKey = new RateLimiterKey(anchorKey, -1, token);
+                if (!authority.TryAcquire(globalKey, settings.GlobalLimit, settings.Window, permits))
+                    return new(false);
 
-                // 3. Capa vinculada por Guid (Link/Unlink)
+                // Capa 2 — MessageType
+                var group = GetGroupKey(type);
+                if (group >= 0)
+                {
+                    var typeLimit = GetLimitFromSettings(settings, group);
+                    if (typeLimit.HasValue)
+                    {
+                        var typeKey = new RateLimiterKey(anchorKey, group, token);
+                        if (!authority.TryAcquire(typeKey, typeLimit.Value, TimeSpan.FromSeconds(15), permits))
+                            return new(false);
+                    }
+                }
+
+                // Capa 3 — Guid linked (RateBucket del atributo — pendiente de migrar a WheelRateLimiter)
                 if (resourceId != Guid.Empty)
                 {
-                    string linkKey = $"link_{anchorKey}_{resourceId}";
-
-                    // Intentamos obtener el request que guardamos en el Link
-                    if (cache.TryGetValue(linkKey, out IOperationRequest? request) && request != null)
-                    {
-                        // Recuperamos el bucket específico de este Guid a través del settingsManager
-                        var settings = GetLinkedSettings(type, resourceId);
-
-                        if (settings?.RateBucket != null)
-                        {
-                            await settings.RateBucket.AcquireAsync(permits, cancellationToken);
-                        }
-                    }
+                    var linkedSettings = GetLinkedSettings(type, resourceId);
+                    if (linkedSettings?.RateBucket != null)
+                        return AcquireLinkedAsync(linkedSettings.RateBucket, permits, cancellationToken);
                 }
 
-                return true;
+                return new(true);
             }
-            catch (Exception)
+            catch
             {
-                return false;
+                return new(false);
             }
         }
 
-        private RateLimiter? GetOrCreateLimiter(string anchorKey, MessageType type, HubconTransportAttribute transport)
-        {
-            string key = $"limiter_{anchorKey}_{GetGroupKey(type)}";
-
-            return cache.GetOrCreate(key, () => { return CreateLimiterByMessageType(type, transport); });
-        }
-
-        private RateLimiter? GetOrCreateContractLimiter(string anchorKey,
+        // ── Contract limiter ──────────────────────────────────────────────
+        private bool TryAcquireContractLimit(
+            string anchorKey,
             IOperationEndpoint endpoint,
-            HubconTransportAttribute transport)
+            HubconTransportAttribute transport,
+            IRateLimitAuthority authority,
+            ITransportSettings settings,
+            int permits)
         {
-            if (operationRegistry.TryGetOperationBlueprint(endpoint, transport, out var blueprint))
-            {
-                string key = $"op_{anchorKey}:{blueprint!.SimpleContractName}";
+            if (!operationRegistry.TryGetOperationBlueprint(endpoint, transport, out var blueprint))
+                return true;
 
-                return cache.GetOrCreate(key, () =>
-                {
-                    var settings = blueprint.ContractType.GetCustomAttribute<RateLimitAttribute>() ??
-                                   blueprint.ControllerType.GetCustomAttribute<RateLimitAttribute>();
-                    return settings?.RateBucket;
-                });
-            }
+            var attr = blueprint!.ContractType.GetCustomAttribute<RateLimitAttribute>() ??
+                       blueprint.ControllerType.GetCustomAttribute<RateLimitAttribute>();
 
-            return null;
+            if (attr is null) return true;
+
+            // Anchor incluye contract name — el blueprint.SimpleContractName es constante,
+            // no hay forma de evitar el string aquí sin un struct de 3 strings
+            var key = new RateLimiterKey($"{anchorKey}:{blueprint.SimpleContractName}", -2,
+                transport.GetType().MetadataToken);
+
+            return authority.TryAcquire(key, attr.Limit, attr.Window, permits);
         }
 
-        private RateLimiter? GetOrCreateOperationLimiter(string anchorKey, IOperationEndpoint endpoint,
-            HubconTransportAttribute transport)
+        // ── Operation limiter ─────────────────────────────────────────────
+        private bool TryAcquireOperationLimit(
+            string anchorKey,
+            IOperationEndpoint endpoint,
+            HubconTransportAttribute transport,
+            IRateLimitAuthority authority,
+            ITransportSettings settings,
+            int permits)
         {
-            if (operationRegistry.TryGetOperationBlueprint(endpoint, transport, out var blueprint))
-            {
-                string key = $"op_{anchorKey}:{blueprint!.SimpleContractName}:{blueprint.OperationName}";
+            var attr = _settingsManager.GetSettings<RateLimitAttribute>(endpoint, transport, static () => null!);
+            if (attr is null) return true;
 
-                return cache.GetOrCreate(key, () =>
-                {
-                    var settings = settingsManager.GetSettings<RateLimitAttribute>(endpoint, transport, () => null!);
-                    return settings?.RateBucket;
-                });
-            }
+            if (!operationRegistry.TryGetOperationBlueprint(endpoint, transport, out var blueprint))
+                return true;
 
-            return null;
+            var key = new RateLimiterKey(
+                $"{anchorKey}:{blueprint!.SimpleContractName}:{blueprint.OperationName}", -3,
+                transport.GetType().MetadataToken);
+
+            return authority.TryAcquire(key, attr.Limit, attr.Window, permits);
         }
 
-        private string GetGroupKey(MessageType type) => type switch
+        // ── Helpers ───────────────────────────────────────────────────────
+        private ITransportSettings GetTransportSettings(HubconTransportAttribute transport) =>
+            options.TransportSettings.TryGetValue(transport, out var s) ? s : transport.DefaultTransportSettings;
+
+        // Int en lugar de string → el switch es un jump table
+        private static int GetGroupKey(MessageType type) => type switch
         {
-            MessageType.subscription_init or MessageType.subscription_data => "sub",
-            MessageType.stream_init or MessageType.stream_data => "stream",
-            MessageType.ingest_init or MessageType.ingest_data => "ingest",
-            _ => type.ToString()
+            MessageType.operation_invoke => 0,
+            MessageType.operation_call => 1,
+            MessageType.ping => 2,
+            MessageType.stream_init or MessageType.stream_complete
+                or MessageType.stream_data or MessageType.stream_data_ack
+                or MessageType.stream_data_with_ack => 3,
+            MessageType.ingest_init or MessageType.ingest_data
+                or MessageType.ingest_data_with_ack or MessageType.ingest_complete
+                or MessageType.ingest_result => 4,
+            MessageType.token_update => 5,
+            _ => -1, // sin límite
         };
 
-        private RateLimiter? CreateLimiterByMessageType(MessageType type, HubconTransportAttribute transport)
+        private static int? GetLimitFromSettings(ITransportSettings settings, int group) => group switch
         {
-            if (!options.TransportSettings.TryGetValue(transport, out var settings))
-                settings = transport.DefaultTransportSettings;
-            
-            var bucketOptions = type switch
-            {
-                MessageType.connection_ack
-                    or MessageType.connection_init
-                    or MessageType.pong
-                    or MessageType.error
-                    or MessageType.ack
-                    or MessageType.ingest_init_ack
-                    or MessageType.ingest_data_ack
-                    or MessageType.operation_response
-                    => null,
+            0 => settings.InvokeOperationLimitPerSecond,
+            1 => settings.CallOperationLimitPerSecond,
+            2 => settings.PingOperationLimitPerSecond,
+            3 => settings.StreamOperationLimitPerSecond,
+            4 => settings.IngestOperationLimitPerSecond,
+            5 => settings.ControlMessagesPerSecond,
+            _ => null,
+        };
 
-                MessageType.ping
-                    => settings.PingOperationLimiterOptions,
+        private static async ValueTask<bool> AcquireLinkedAsync(RateLimiter bucket, int permits, CancellationToken ct)
+            => (await bucket.AcquireAsync(permits, ct)).IsAcquired;
 
-                MessageType.operation_invoke
-                    => settings.InvokeOperationLimiterOptions,
-
-                MessageType.operation_call
-                    => settings.CallOperationLimiterOptions,
-
-                MessageType.stream_init
-                    or MessageType.stream_complete
-                    or MessageType.stream_data
-                    or MessageType.stream_data_ack
-                    or MessageType.stream_data_with_ack
-                    => settings.StreamOperationLimiterOptions,
-
-                MessageType.ingest_init
-                    or MessageType.ingest_data
-                    or MessageType.ingest_data_with_ack
-                    or MessageType.ingest_complete
-                    or MessageType.ingest_result
-                    => settings.IngestOperationLimiterOptions,
-
-                MessageType.token_update
-                    => settings.ControlMessagesRateLimiterOptions,
-
-                _ => null,
-            };
-
-            return bucketOptions != null ? new TokenBucketRateLimiter(bucketOptions) : null;
-        }
-
-        public ValueTask Link(string anchorKey, Guid id, HubconTransportAttribute transportAttribute,
-            IOperationRequest request)
+        public ValueTask Link(string anchorKey, Guid id, HubconTransportAttribute transport, IOperationRequest request)
         {
-            if (!operationRegistry.TryGetOperationBlueprint(request, transportAttribute, out var blueprint))
-            {
-                return ValueTask.CompletedTask;
-            }
-            
+            if (!operationRegistry.TryGetOperationBlueprint(request, transport, out var blueprint))
+                return new();
+
             operationConfigRegistry.Link(id, blueprint!);
-            
-            string linkKey = $"link_{anchorKey}_{id}";
+            cache.Set($"link_{anchorKey}_{id}", request,
+                static state => state.registry.Unlink(state.id),
+                (registry: operationConfigRegistry, id));
 
-            cache.Set(linkKey, request, () => { operationConfigRegistry.Unlink(id); });
-
-            return ValueTask.CompletedTask;
+            return new();
         }
 
         public ValueTask Unlink(string anchorKey, Guid operationId)
         {
             operationConfigRegistry.Unlink(operationId);
-
-            string linkKey = $"link_{anchorKey}_{operationId}";
-            cache.Remove(linkKey);
-
-            return ValueTask.CompletedTask;
+            cache.Remove($"link_{anchorKey}_{operationId}");
+            return new();
         }
 
-        private RateLimitAttribute? GetLinkedSettings(MessageType type, Guid id)
+        private RateLimitAttribute? GetLinkedSettings(MessageType type, Guid id) => type switch
         {
-            return type switch
-            {
-                MessageType.connection_ack
-                    or MessageType.connection_init
-                    or MessageType.pong
-                    or MessageType.error
-                    or MessageType.ack
-                    or MessageType.ingest_init_ack
-                    or MessageType.ingest_data_ack
-                    or MessageType.operation_response
-                    => null,
+            MessageType.connection_ack or MessageType.connection_init
+                or MessageType.pong or MessageType.error or MessageType.ack
+                or MessageType.ingest_init_ack or MessageType.ingest_data_ack
+                or MessageType.operation_response or MessageType.ping => null,
 
-                // Ping limiter (para evitar abuso)
-                MessageType.ping
-                    => null,
+            MessageType.operation_invoke or MessageType.operation_call
+                => _settingsManager.GetSettings(id, static () => new RateLimitAttribute()),
 
-                // Operation messages (round-trip)
-                MessageType.operation_invoke
-                    => settingsManager.GetSettings(id, () => new RateLimitAttribute()),
+            MessageType.subscription_init or MessageType.subscription_data
+                or MessageType.subscription_data_with_ack or MessageType.subscription_complete
+                => _settingsManager.GetSettings(id, static () => new RateLimitAttribute()),
 
-                // Operation call (fire and forget)
-                MessageType.operation_call
-                    => settingsManager.GetSettings(id, () => new RateLimitAttribute()),
+            MessageType.stream_init or MessageType.stream_complete
+                or MessageType.stream_data or MessageType.stream_data_ack
+                or MessageType.stream_data_with_ack
+                => _settingsManager.GetSettings(id, static () => new RateLimitAttribute()),
 
-                // Subscription group (comparten el mismo limiter)
-                MessageType.subscription_init
-                    or MessageType.subscription_data
-                    or MessageType.subscription_data_with_ack
-                    or MessageType.subscription_complete
-                    => settingsManager.GetSettings(id, () => new RateLimitAttribute()),
+            MessageType.ingest_init or MessageType.ingest_data
+                or MessageType.ingest_data_with_ack or MessageType.ingest_complete
+                or MessageType.ingest_result
+                => _settingsManager.GetSettings(id, static () => new RateLimitAttribute()),
 
-                // Stream group (todos comparten)
-                MessageType.stream_init
-                    or MessageType.stream_complete
-                    or MessageType.stream_data
-                    or MessageType.stream_data_ack
-                    or MessageType.stream_data_with_ack
-                    => settingsManager.GetSettings(id, () => new RateLimitAttribute()),
-
-                // Ingest group (comparten)
-                MessageType.ingest_init
-                    or MessageType.ingest_data
-                    or MessageType.ingest_data_with_ack
-                    or MessageType.ingest_complete
-                    or MessageType.ingest_result
-                    => settingsManager.GetSettings(id, () => new RateLimitAttribute()),
-
-                _ => null,
-            };
-        }
+            _ => null,
+        };
     }
 }

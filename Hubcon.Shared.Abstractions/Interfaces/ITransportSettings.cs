@@ -54,9 +54,9 @@ namespace Hubcon
         /// The rate limiting options applied specifically to incoming Ping frames.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> for ping operations, or <see langword="null"/> if unthrottled.
+        /// The <see cref="int"/> for ping operations, or <see langword="null"/> if unthrottled.
         /// </value>
-        public TokenBucketRateLimiterOptions? PingOperationLimiterOptions { get; }
+        public int? PingOperationLimitPerSecond { get; }
 
         /// <summary>
         /// Gets a value indicating whether the transport automatically responds to Ping frames with Pong frames.
@@ -110,9 +110,9 @@ namespace Hubcon
         /// The global transport-level rate limiting bucket options.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> applied to all incoming transport traffic.
+        /// The <see cref="int"/> applied to all incoming transport traffic.
         /// </value>
-        public TokenBucketRateLimiterOptions? TransportLimiterOptions { get; }
+        public int? TransportLimitPerSecond { get; }
 
         /// <summary>
         /// Gets a value indicating whether RPC method overloading (multiple endpoints with the same name but different parameters) is supported.
@@ -166,9 +166,9 @@ namespace Hubcon
         /// The rate limiting configuration for one-way (Call) operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> governing Call invocation rates.
+        /// The <see cref="int"/> governing Call invocation rates.
         /// </value>
-        public TokenBucketRateLimiterOptions? CallOperationLimiterOptions { get; }
+        public int? CallOperationLimitPerSecond { get; }
         
         /// <summary>
         /// Gets a value indicating whether synchronous or asynchronous Request-Response (Invoke) operations are enabled.
@@ -190,9 +190,9 @@ namespace Hubcon
         /// The rate limiting configuration applied specifically to Request-Response (Invoke) operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> governing Invoke invocation rates.
+        /// The <see cref="int"/> governing Invoke invocation rates.
         /// </value>
-        public TokenBucketRateLimiterOptions? InvokeOperationLimiterOptions { get; }
+        public int? InvokeOperationLimitPerSecond { get; }
         
         /// <summary>
         /// Gets a value indicating whether Server-Streaming (Stream) operations are enabled.
@@ -214,9 +214,9 @@ namespace Hubcon
         /// The rate limiting options governing the creation rate of Server-Streaming operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> for stream initialization.
+        /// The <see cref="int"/> for stream initialization.
         /// </value>
-        public TokenBucketRateLimiterOptions? StreamOperationLimiterOptions { get; }
+        public int? StreamOperationLimitPerSecond { get; }
         
         /// <summary>
         /// Gets a value indicating whether Client-Streaming (Ingest) operations are enabled.
@@ -238,17 +238,17 @@ namespace Hubcon
         /// The rate limiting configuration for initiating Client-Streaming (Ingest) operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> for stream ingestion limits.
+        /// The <see cref="int"/> for stream ingestion limits.
         /// </value>
-        public TokenBucketRateLimiterOptions? IngestOperationLimiterOptions { get; }
+        public int? IngestOperationLimitPerSecond { get; }
         
         /// <summary>
         /// The rate limiting configuration for transport-only control messages.
         /// </summary>
         /// <value>
-        /// The <see cref="ControlMessagesRateLimiterOptions"/> for control messages rate limits.
+        /// The <see cref="ControlMessagesPerSecond"/> for control messages rate limits.
         /// </value>
-        public TokenBucketRateLimiterOptions? ControlMessagesRateLimiterOptions { get; }
+        public int? ControlMessagesPerSecond { get; }
         
         /// <summary>
         /// Gets a value indicating whether the transport should check the token used for the live connection on every received message.
@@ -324,9 +324,9 @@ namespace Hubcon
         /// The rate limiting options applied specifically to incoming Ping frames.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> for ping operations, or <see langword="null"/> if unthrottled.
+        /// The <see cref="int"/> for ping operations, or <see langword="null"/> if unthrottled.
         /// </value>
-        public TokenBucketRateLimiterOptions? PingOperationLimiterOptions { set; }
+        public int? PingOperationLimitPerSecond { set; }
 
         /// <summary>
         /// Gets a value indicating whether the transport automatically responds to Ping frames with Pong frames.
@@ -380,9 +380,9 @@ namespace Hubcon
         /// The global transport-level rate limiting bucket options.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> applied to all incoming transport traffic.
+        /// The <see cref="int"/> applied to all incoming transport traffic.
         /// </value>
-        public TokenBucketRateLimiterOptions? TransportLimiterOptions { set; }
+        public int? TransportLimitPerSecond { set; }
 
         /// <summary>
         /// Gets a value indicating whether RPC method overloading (multiple endpoints with the same name but different parameters) is supported.
@@ -436,9 +436,9 @@ namespace Hubcon
         /// The rate limiting configuration for one-way (Call) operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> governing Call invocation rates.
+        /// The <see cref="int"/> governing Call invocation rates.
         /// </value>
-        public TokenBucketRateLimiterOptions? CallOperationLimiterOptions { set; }
+        public int? CallOperationLimitPerSecond { set; }
         
         /// <summary>
         /// Gets a value indicating whether synchronous or asynchronous Request-Response (Invoke) operations are enabled.
@@ -460,9 +460,9 @@ namespace Hubcon
         /// The rate limiting configuration applied specifically to Request-Response (Invoke) operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> governing Invoke invocation rates.
+        /// The <see cref="int"/> governing Invoke invocation rates.
         /// </value>
-        public TokenBucketRateLimiterOptions? InvokeOperationLimiterOptions { set; }
+        public int? InvokeOperationLimitPerSecond { set; }
         
         /// <summary>
         /// Gets a value indicating whether Server-Streaming (Stream) operations are enabled.
@@ -484,9 +484,9 @@ namespace Hubcon
         /// The rate limiting options governing the creation rate of Server-Streaming operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> for stream initialization.
+        /// The <see cref="int"/> for stream initialization.
         /// </value>
-        public TokenBucketRateLimiterOptions? StreamOperationLimiterOptions { set; }
+        public int? StreamOperationLimitPerSecond { set; }
         
         /// <summary>
         /// Gets a value indicating whether Client-Streaming (Ingest) operations are enabled.
@@ -508,17 +508,17 @@ namespace Hubcon
         /// The rate limiting configuration for initiating Client-Streaming (Ingest) operations.
         /// </summary>
         /// <value>
-        /// The <see cref="TokenBucketRateLimiterOptions"/> for stream ingestion limits.
+        /// The <see cref="int"/> for stream ingestion limits.
         /// </value>
-        public TokenBucketRateLimiterOptions? IngestOperationLimiterOptions { set; }
+        public int? IngestOperationLimitPerSecond { set; }
         
         /// <summary>
         /// The rate limiting configuration for transport-only control messages.
         /// </summary>
         /// <value>
-        /// The <see cref="ControlMessagesRateLimiterOptions"/> for control messages rate limits.
+        /// The <see cref="ControlMessagesLimitPerSecond"/> for control messages rate limits.
         /// </value>
-        public TokenBucketRateLimiterOptions? ControlMessagesRateLimiterOptions { set; }
+        public int? ControlMessagesLimitPerSecond { set; }
         
         /// <summary>
         /// Gets a value indicating whether the transport should check the token used for the live connection on every received message.
