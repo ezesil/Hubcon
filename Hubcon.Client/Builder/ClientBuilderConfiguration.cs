@@ -61,13 +61,28 @@ namespace Hubcon.Client.Builder
 
         public IServerModuleConfiguration WithBaseUrl(string hostUrl)
         {
-            builder.BaseUri ??= new Uri(hostUrl);
+            var rawInput = hostUrl;
+
+            if (!rawInput.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !rawInput.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                rawInput = $"http://{rawInput}";
+            }
+            
+            builder.BaseUri ??= new Uri(rawInput);
             return this;
         }
 
         public IServerModuleConfiguration UseInsecureConnection()
         {
             builder.UseSecureConnection = false;
+            
+            ConfigureHttpClientHandler((_, options) =>
+            {
+                options.ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            });
+            
             return this;
         }
 
@@ -358,9 +373,15 @@ namespace Hubcon.Client.Builder
             return this;
         }
 
-        public IServerModuleConfiguration UseHttpClientFactory(Func<IServiceProvider, HttpClient> httpClientFactory)
+        public IServerModuleConfiguration UseHttpClientFactory(Func<IServiceProvider, HttpClientHandler, HttpClient> httpClientFactory)
         {
             builder.HttpClientFactory = httpClientFactory;
+            return this;
+        }
+
+        public IServerModuleConfiguration ConfigureHttpClientHandler(Action<IServiceProvider, HttpClientHandler> configurator)
+        {
+            builder.HttpClientHandlerConfigurator = configurator;
             return this;
         }
 

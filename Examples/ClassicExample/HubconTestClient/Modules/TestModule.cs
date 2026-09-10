@@ -4,7 +4,10 @@ using HubconTestDomain;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Net.Http;
+using System.Net.Security;
 using System.Threading;
+using Microsoft.Extensions.Http;
 
 namespace HubconTestClient.Modules
 {
@@ -13,10 +16,8 @@ namespace HubconTestClient.Modules
         public override void Configure(IServerModuleConfiguration server)
         {
             // server.WithBaseUrl("http://coolify.local:9080/");
-            // server.WithBaseUrl("http://192.168.0.81:9080");
-            server.WithBaseUrl("http://localhost:5000");
-
-
+            server.WithBaseUrl("localhost:5000");
+            
             server.EnableWebsocketAutoReconnect();
             server.GlobalLimit(1000);
             // server.EnableLogging();

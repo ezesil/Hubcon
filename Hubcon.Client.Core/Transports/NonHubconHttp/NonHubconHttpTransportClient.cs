@@ -224,7 +224,9 @@ namespace Hubcon.Client.Core.Transports.NonHubconHttp
         /// <inheritdoc/>
         protected override void Build(TransportContext configuration)
         {
-            _httpClient = configuration.ClientOptions.HttpClientFactory.Invoke(configuration.ProxyServiceProvider);
+            var handler = new HttpClientHandler();
+            configuration.ClientOptions.HttpClientHandlerConfigurator?.Invoke(configuration.ProxyServiceProvider, handler);
+            _httpClient = configuration.ClientOptions.HttpClientFactory?.Invoke(configuration.ProxyServiceProvider, handler) ?? new HttpClient(handler);
             configuration.ClientOptions.HttpClientOptions?.Invoke(_httpClient, configuration.ProxyServiceProvider);
         }
     }

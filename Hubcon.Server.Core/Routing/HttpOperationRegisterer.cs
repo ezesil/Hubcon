@@ -112,7 +112,7 @@ namespace Hubcon.Server.Core.Routing
                             context.Response.StatusCode = 429;
                             return HubconResponse.StatusTooManyRequests;
                         }
-
+                        
                         IWrapper? wrapper = null;
                         if (blueprint.ParameterWrapper != null)
                         {
@@ -179,7 +179,7 @@ namespace Hubcon.Server.Core.Routing
                             context.Response.StatusCode = 429;
                             return HubconResponse.StatusTooManyRequests;
                         }
-                        
+
                         if (invocationContext.Arguments.Count == 0 || invocationContext.Arguments.FirstOrDefault() is not IWrapper wrapper)
                         {
                             context.Response.StatusCode = 400;
@@ -282,13 +282,13 @@ namespace Hubcon.Server.Core.Routing
 
                         var rateLimiter = services.GetRequiredService<IGlobalRateLimiterManager>();
                         var remoteAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
+                        
                         if (!await rateLimiter.TryAcquireAsync(remoteAddress, MessageType.operation_invoke, transport, operationRequest))
                         {
                             context.Response.StatusCode = 429;
                             return HubconResponse.StatusTooManyRequests;
                         }
-
+                        
                         if (invocationContext.Arguments.Count == 0 || invocationContext.Arguments.FirstOrDefault() is not IWrapper wrapper)
                         {
                             context.Response.StatusCode = 400;
@@ -341,7 +341,7 @@ namespace Hubcon.Server.Core.Routing
                             context.Response.StatusCode = 429;
                             return HubconResponse.StatusTooManyRequests;
                         }
-                        
+
                         IWrapper? wrapper = null;
                         if (blueprint.ParameterWrapper != null)
                         {

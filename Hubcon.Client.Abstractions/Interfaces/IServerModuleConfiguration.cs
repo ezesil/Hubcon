@@ -296,8 +296,15 @@ namespace Hubcon
         /// HttpClient is requested only once per singleton contract.
         /// </summary>
         /// <returns>The current instance of <see cref="IServerModuleConfiguration"/> for method chaining.</returns>
-        IServerModuleConfiguration UseHttpClientFactory(Func<IServiceProvider, HttpClient> httpClientFactory);
+        IServerModuleConfiguration UseHttpClientFactory(Func<IServiceProvider, HttpClientHandler, HttpClient> httpClientFactory);
 
+        /// <summary>
+        /// Specifies the http client factory configurations to use.
+        /// HttpClient is requested only once per singleton contract.
+        /// </summary>
+        /// <returns>The current instance of <see cref="IServerModuleConfiguration"/> for method chaining.</returns>
+        IServerModuleConfiguration ConfigureHttpClientHandler(Action<IServiceProvider, HttpClientHandler> configurator);
+        
         /// <summary>
         /// Specifies which transport should be used. By default, HTTP is used. Using attributes in contracts instead of this is recommended, unless you are exposing multiple transports.
         /// </summary>

@@ -127,8 +127,11 @@ namespace Hubcon.Client.Abstractions.Interfaces
         bool UseHttpEndpointOverloading { get; }
 
         /// <summary>Gets the factory used to construct the internal <see cref="HttpClient"/>.</summary>
-        Func<IServiceProvider, HttpClient> HttpClientFactory { get; }
+        Func<IServiceProvider, HttpClientHandler, HttpClient> HttpClientFactory { get; }
 
+        /// <summary>Gets or sets a delegate to configure the underlying <see cref="HttpClientHandler"/>.</summary>
+        public Action<IServiceProvider, HttpClientHandler>? HttpClientHandlerConfigurator { get; set; }
+        
         /// <summary>
         /// Retrieves the specific configuration options for a given contract type.
         /// </summary>

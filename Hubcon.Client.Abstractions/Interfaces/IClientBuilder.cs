@@ -44,6 +44,9 @@ namespace Hubcon.Client.Abstractions.Interfaces
 
         /// <summary>Gets or sets a delegate to configure the underlying <see cref="HttpClient"/>.</summary>
         Action<HttpClient, IServiceProvider>? HttpClientOptions { get; set; }
+        
+        /// <summary>Gets or sets a delegate to configure the underlying <see cref="HttpClientHandler"/>.</summary>
+        public Action<IServiceProvider, HttpClientHandler>? HttpClientHandlerConfigurator { get; set; }
 
         /// <summary>Gets or sets the interval for sending WebSocket pings.</summary>
         TimeSpan WebsocketPingInterval { get; set; }
@@ -104,7 +107,7 @@ namespace Hubcon.Client.Abstractions.Interfaces
         bool AuthIsEnabled { get; set; }
 
         /// <summary>Gets or sets the factory used to create the internal <see cref="HttpClient"/>.</summary>
-        Func<IServiceProvider, HttpClient> HttpClientFactory { get; set; }
+        Func<IServiceProvider, HttpClientHandler, HttpClient> HttpClientFactory { get; set; }
 
         /// <summary>Gets or sets the default transport mode (e.g., WebSocket) for the client.</summary>
         HubconTransportAttribute TransportType { get; set; }

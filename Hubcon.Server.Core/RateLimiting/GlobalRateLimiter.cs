@@ -44,13 +44,13 @@ namespace Hubcon.Server.Core.RateLimiting
                     return new ValueTask<bool>(true);
                 
                 var authority = ResolveAuthority(transport);
-                var token = transport.TransportType.MetadataToken;
+                var token = transport.TransportTypeToken;
 
                 // Per transport
                 var globalKey = new RateLimiterKey(anchorKey, -1, token);
                 if (!authority.TryAcquire(globalKey, settings.TransportLimitPerSecond, TimeSpan.FromSeconds(1), permits))
                     return new(false);
-
+                
                 // Per message type
                 var group = GetGroupKey(type);
                 if (group >= 0)
@@ -73,11 +73,12 @@ namespace Hubcon.Server.Core.RateLimiting
                 // Per operation
                 if (!TryAcquireOperationLimit(anchorKey, operation, transport, authority, settings, permits))
                     return new(false);
-
+                
                 return new(true);
             }
-            catch
+            catch(Exception ex)
             {
+                Console.WriteLine(ex.Message);
                 return new(false);
             }
         }
@@ -100,7 +101,7 @@ namespace Hubcon.Server.Core.RateLimiting
                     return new ValueTask<bool>(true);
                 
                 var authority = ResolveAuthority(transport);
-                var token = transport.TransportType.MetadataToken;
+                var token = transport.TransportTypeToken;
 
                 // Global
                 var globalKey = new RateLimiterKey(anchorKey, -1, token);
@@ -130,8 +131,9 @@ namespace Hubcon.Server.Core.RateLimiting
 
                 return new(true);
             }
-            catch
+            catch(Exception ex)
             {
+                Console.WriteLine(ex.Message);
                 return new(false);
             }
         }
@@ -155,7 +157,7 @@ namespace Hubcon.Server.Core.RateLimiting
             // Anchor incluye contract name — el blueprint.SimpleContractName es constante,
             // no hay forma de evitar el string aquí sin un struct de 3 strings
             var key = new RateLimiterKey($"{anchorKey}:{blueprint.SimpleContractName}", -2,
-                transport.TransportType.MetadataToken);
+                transport.TransportType.GetHashCode());
 
             return authority.TryAcquire(key, attr.RateTokenLimit, TimeSpan.FromMilliseconds(attr.MillisecondsToReplenish), permits);
         }
@@ -177,7 +179,7 @@ namespace Hubcon.Server.Core.RateLimiting
 
             var key = new RateLimiterKey(
                 $"{anchorKey}:{blueprint!.SimpleContractName}:{blueprint.OperationName}", -3,
-                transport.TransportType.MetadataToken);
+                transport.TransportType.GetHashCode());
 
             return authority.TryAcquire(key, attr.RateTokenLimit, TimeSpan.FromMilliseconds(attr.MillisecondsToReplenish), permits);
         }

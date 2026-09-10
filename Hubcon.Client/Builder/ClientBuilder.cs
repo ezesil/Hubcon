@@ -163,8 +163,10 @@ namespace Hubcon.Client.Builder
         public bool DebuggingMethodSignaturesEnabled { get; set; }
         public bool AuthIsEnabled { get; set; } = true;
 
-        public Func<IServiceProvider, HttpClient> HttpClientFactory { get; set; } = x => new HttpClient();
+        public Func<IServiceProvider, HttpClientHandler, HttpClient> HttpClientFactory { get; set; } = static (_, handler) => new HttpClient(handler);
 
+        public Action<IServiceProvider, HttpClientHandler>? HttpClientHandlerConfigurator { get; set; }
+        
         public HubconTransportAttribute TransportType { get; set; } = HubconTransportAttribute.GetDefault<HttpTransport>();
 
         public Dictionary<string, Func<IServiceProvider, string>> HeaderProviders { get; } = new();
@@ -257,7 +259,7 @@ namespace Hubcon.Client.Builder
             HubconClientBuilder.Current.LoadContractProxy(contractType, services);
         }
 
-        public void UseHttpClientFactory(Func<IServiceProvider, HttpClient> httpClientFactory)
+        public void UseHttpClientFactory(Func<IServiceProvider, HttpClientHandler, HttpClient> httpClientFactory)
         {
             HttpClientFactory = httpClientFactory;
         }
