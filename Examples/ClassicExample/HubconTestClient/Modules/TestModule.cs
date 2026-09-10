@@ -16,7 +16,8 @@ namespace HubconTestClient.Modules
         public override void Configure(IServerModuleConfiguration server)
         {
             // server.WithBaseUrl("http://coolify.local:9080/");
-            server.WithBaseUrl("localhost:5000");
+            // server.WithBaseUrl("localhost:5000");
+            server.WithBaseUrl("hubcon.lan.io");
             
             server.EnableWebsocketAutoReconnect();
             server.GlobalLimit(1000);
@@ -58,6 +59,7 @@ namespace HubconTestClient.Modules
             {
                 x.SetBuffer(4 * 1024, 4 * 1024);
                 x.SetRequestHeader("Origin", "Hubcon");
+                x.RemoteCertificateValidationCallback = (_, _, _, _) => true;
             });
 
             server.ConfigureHttpClient((options, services) =>

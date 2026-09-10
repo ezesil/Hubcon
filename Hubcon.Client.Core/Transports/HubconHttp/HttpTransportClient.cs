@@ -3,6 +3,7 @@ using Hubcon.Shared.Core.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -140,10 +141,8 @@ namespace Hubcon.Client.Core.Transports.HubconHttp
                 if (content != null)
                     httpRequest.Content = content;
 
-                if (context.RequiresAuthentication && authenticationManager != null &&
-                    authenticationManager.IsSessionActive)
-                    httpRequest.Headers.Authorization = new AuthenticationHeaderValue(authenticationManager.TokenType!,
-                        authenticationManager.AccessToken);
+                if (context.RequiresAuthentication && authenticationManager is { IsSessionActive: true })
+                    httpRequest.Headers.Authorization = new AuthenticationHeaderValue(authenticationManager.TokenType!, authenticationManager.AccessToken);
 
                 response = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead,
                     cancellationToken);
