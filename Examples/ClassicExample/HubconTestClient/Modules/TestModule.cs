@@ -14,7 +14,7 @@ namespace HubconTestClient.Modules
         {
             // server.WithBaseUrl("http://coolify.local:9080/");
             // server.WithBaseUrl("http://192.168.0.81:9080");
-            server.WithBaseUrl("localhost:5000");
+            server.WithBaseUrl("http://localhost:5000");
 
 
             server.EnableWebsocketAutoReconnect();

@@ -1,115 +1,119 @@
 using System;
 using System.Threading.RateLimiting;
+using Hubcon.Shared.Abstractions.Interfaces;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Hubcon
 {
-    /// <inheritdoc cref="ITransportSettings" />
-    public class TransportSettings : ITransportSettings, ITransportSettingsSetter
+    /// <inheritdoc />
+    public class TransportSettings : ISettableTransportSettings
     {
-        /// <inheritdoc cref="ITransportSettings.MaxMessageSizeInBytes" />
+        /// <inheritdoc />
         public virtual long MaxMessageSizeInBytes { get; set; } = 65535;
 
-        /// <inheritdoc cref="ITransportSettings.RequestTimeout" />
+        /// <inheritdoc />
         public virtual TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(15);
 
-        /// <inheritdoc cref="ITransportSettings.MaxConnections" />
+        /// <inheritdoc />
         public virtual int MaxConnections { get; set; } = 1000;
 
-        /// <inheritdoc cref="ITransportSettings.MaxConnectionsPerIp" />
+        /// <inheritdoc />
         public virtual int MaxConnectionsPerIp { get; set; } = 10;
 
-        /// <inheritdoc cref="ITransportSettings.EnablePing" />
+        /// <inheritdoc />
         public virtual bool EnablePing { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.PingOperationLimitPerSecond" />
-        public int? PingOperationLimitPerSecond { get; set; }
+        /// <inheritdoc />
+        public int PingOperationLimitPerSecond { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.EnablePong" />
+        /// <inheritdoc />
         public virtual bool EnablePong { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.TransportPrefix" />
+        /// <inheritdoc />
         public virtual string TransportPrefix { get; set; } = "/";
 
-        /// <inheritdoc cref="ITransportSettings.CallOperationEnabled" />
+        /// <inheritdoc />
         public virtual bool CallOperationEnabled { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.CallOperationTimeout" />
+        /// <inheritdoc />
         public virtual TimeSpan CallOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.CallOperationLimitPerSecond" />
-        public int? CallOperationLimitPerSecond { get; set; }
+        /// <inheritdoc />
+        public int CallOperationLimitPerSecond { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.InvokeOperationEnabled" />
+        /// <inheritdoc />
         public virtual bool InvokeOperationEnabled { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.InvokeOperationTimeout" />
+        /// <inheritdoc />
         public virtual TimeSpan InvokeOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.InvokeOperationLimitPerSecond" />
-        public int? InvokeOperationLimitPerSecond { get; set; }
+        /// <inheritdoc />
+        public int InvokeOperationLimitPerSecond { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.StreamOperationEnabled" />
+        /// <inheritdoc />
         public virtual bool StreamOperationEnabled { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.StreamOperationTimeout" />
+        /// <inheritdoc />
         public virtual TimeSpan StreamOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.StreamOperationLimitPerSecond" />
-        public int? StreamOperationLimitPerSecond { get; set; }
+        /// <inheritdoc />
+        public int StreamOperationLimitPerSecond { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.IngestOperationEnabled" />
+        /// <inheritdoc />
         public virtual bool IngestOperationEnabled { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.IngestOperationTimeout" />
+        /// <inheritdoc />
         public virtual TimeSpan IngestOperationTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.IngestOperationLimitPerSecond" />
-        public int? IngestOperationLimitPerSecond { get; set; }
+        /// <inheritdoc />
+        public int IngestOperationLimitPerSecond { get; set; }
         
-        /// <inheritdoc cref="ITransportSettings.ControlMessagesLimitPerSecond" />
-        public int? ControlMessagesLimitPerSecond { get; set; }
+        /// <inheritdoc />
+        public int ControlMessagesLimitPerSecond { get; set; }
         
-        /// <inheritdoc cref="ITransportSettings.ControlMessagesPerSecond" />
-        public int? ControlMessagesPerSecond { get; set; }
+        /// <inheritdoc />
+        public int ControlMessagesPerSecond { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.RetryableMessagesEnabled" />
+        /// <inheritdoc />
         public virtual bool RetryableMessagesEnabled { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.UseRateLimiters" />
+        /// <inheritdoc />
         public virtual bool UseRateLimiters { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.LoggingEnabled" />
+        /// <inheritdoc />
         public virtual bool LoggingEnabled { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.AllowRemoteCancellation" />
+        /// <inheritdoc />
         public virtual bool AllowRemoteCancellation { get; set; }
         
-        /// <inheritdoc cref="ITransportSettings.TransportLimitPerSecond" />
-        public int? TransportLimitPerSecond { get; set; }
+        /// <inheritdoc />
+        public int TransportLimitPerSecond { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.MethodOverloadingEnabled" />
+        /// <inheritdoc />
+        public IRateLimitAuthority? TransportRateLimitAuthority { get; set; }
+
+        /// <inheritdoc />
         public virtual bool MethodOverloadingEnabled { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.MaxConcurrentRequestsPerIp" />
+        /// <inheritdoc />
         public virtual int MaxConcurrentRequestsPerIp { get; set; } = 10;
 
-        /// <inheritdoc cref="ITransportSettings.AllowAnonymousClients" />
+        /// <inheritdoc />
         public virtual bool AllowAnonymousClients { get; set; } = true;
 
-        /// <inheritdoc cref="ITransportSettings.TokenValidationParameters" />
+        /// <inheritdoc />
         public virtual TokenValidationParameters? TokenValidationParameters { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.CheckTokenExpirationOnMessageReceived" />
+        /// <inheritdoc />
         public virtual bool CheckTokenExpirationOnMessageReceived { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.ConnectionAuthHandlerType" />
+        /// <inheritdoc />
         public virtual Type? ConnectionAuthHandlerType { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.ConnectionTimeout" />
+        /// <inheritdoc />
         public virtual TimeSpan ConnectionTimeout { get; set; }
 
-        /// <inheritdoc cref="ITransportSettings.RequiresAuth" />
+        /// <inheritdoc />
         public virtual bool RequiresAuth { get; set; } = true;
     }
 }

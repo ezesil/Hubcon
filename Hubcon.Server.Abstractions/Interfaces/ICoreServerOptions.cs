@@ -98,7 +98,7 @@ namespace Hubcon.Server.Abstractions.Interfaces
         /// </summary>
         /// <param name="configurator">A delegate to configure the settings of the transport.</param>
         /// <returns>The current <see cref="ICoreServerOptions"/> instance, allowing method chaining.</returns>
-        public ICoreServerOptions ConfigureTransport<TAttribute>(Action<ITransportSettingsSetter> configurator)
+        public ICoreServerOptions ConfigureTransport<TAttribute>(Action<ISettableTransportSettings> configurator)
             where TAttribute : HubconTransportAttribute, new();
         
         /// <summary>

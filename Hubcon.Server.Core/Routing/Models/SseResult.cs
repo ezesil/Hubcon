@@ -35,6 +35,8 @@ namespace Hubcon.Server.Core.Routing.Models
             IGlobalRateLimiterManager rateLimiter = null!;
             var id = Guid.NewGuid();
             PipeWriter writer = null!;
+            string remoteAddress = string.Empty;
+            
             try
             {
                 var response = httpContext.Response;
@@ -46,14 +48,17 @@ namespace Hubcon.Server.Core.Routing.Models
                 response.Headers["X-Accel-Buffering"] = "no";
 
                 rateLimiter = services.GetRequiredService<IGlobalRateLimiterManager>();
-                var remoteAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                remoteAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 await rateLimiter.Link(remoteAddress, id, transport, request);
 
                 writer = response.BodyWriter;
                 var converter = httpContext.RequestServices.GetRequiredService<IDynamicConverter>();
                 await foreach (var item in _stream.WithCancellation(httpContext.RequestAborted))
                 {
-                    await rateLimiter.TryAcquireAsync(remoteAddress, MessageType.stream_data, id, transport);
+                    await rateLimiter.TryAcquireForResourceAsync(remoteAddress, MessageType.stream_data, id, transport,
+                        0, CancellationToken.None);
+                    await rateLimiter.TryAcquireForResourceAsync(remoteAddress, MessageType.stream_data, id, transport,
+                        1, CancellationToken.None);
 
                     if (item is null) continue;
 
@@ -70,6 +75,12 @@ namespace Hubcon.Server.Core.Routing.Models
             }
             catch
             {
+                // Ignored
+            }
+            finally
+            {
+                if(remoteAddress != string.Empty)
+                    await rateLimiter.Unlink(remoteAddress, id);
             }
         }
     }

@@ -18,7 +18,13 @@ public sealed class LocalLimiterAuthority : IRateLimitAuthority
             (limit, window));
         return wheel.TryAcquire(permits);
     }
-
+    
     public ValueTask<bool> TryAcquireAsync(RateLimiterKey key, int limit, TimeSpan window, int permits = 1, CancellationToken ct = default)
-        => new(TryAcquire(key, limit, window, permits));
+    {
+        var wheel = _wheels.GetOrAdd(key,
+            static (k, args) => new WheelRateLimiter(args.limit, args.window),
+            (limit, window));
+        
+        return new(wheel.TryAcquire(permits, ct));
+    }
 }

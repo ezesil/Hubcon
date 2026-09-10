@@ -180,15 +180,15 @@ namespace Hubcon.Server.Core.Configuration
             return (TSettings)settings;
         }
         
-        public ICoreServerOptions ConfigureTransport<TAttribute>(Action<ITransportSettingsSetter> configurator) 
+        public ICoreServerOptions ConfigureTransport<TAttribute>(Action<ISettableTransportSettings> configurator) 
             where TAttribute: HubconTransportAttribute, new()
         {
-            var transport = (TAttribute)HubconTransportAttribute.GetDefault<TAttribute>();
+            var transport = HubconTransportAttribute.GetDefault<TAttribute>();
             
             if (!_transportSettings.TryGetValue(transport, out var settings))
                 settings = transport.DefaultTransportSettings;
                 
-            configurator.Invoke((ITransportSettingsSetter)settings);
+            configurator.Invoke((ISettableTransportSettings)settings);
             _transportSettings.TryAdd(transport, settings);
             
             return this;
@@ -198,7 +198,7 @@ namespace Hubcon.Server.Core.Configuration
             where TAttribute: HubconTransportAttribute<TSettings>, new()
             where TSettings: class, ITransportSettings, new()
         {
-            var transport = (TAttribute)HubconTransportAttribute.GetDefault<TAttribute>();
+            var transport = HubconTransportAttribute.GetDefault<TAttribute>();
             
             if (!_transportSettings.TryGetValue(transport, out var settings))
                 settings = transport.DefaultTransportSettings;
@@ -211,7 +211,7 @@ namespace Hubcon.Server.Core.Configuration
         
         public ITransportSettings GetTransportSettings<TAttribute>() where TAttribute : HubconTransportAttribute, new()
         {
-            var transport = (TAttribute)HubconTransportAttribute.GetDefault<TAttribute>();
+            var transport = HubconTransportAttribute.GetDefault<TAttribute>();
             
             if (_transportSettings.TryGetValue(transport, out var settings)) return settings;
             

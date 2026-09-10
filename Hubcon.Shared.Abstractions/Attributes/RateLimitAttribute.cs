@@ -17,7 +17,15 @@ namespace Hubcon
         /// <summary>
         /// Gets the token bucket rate limiter instance configured for this attribute.
         /// </summary>
-        public TokenBucketRateLimiter RateBucket { get; }
+        public TokenBucketRateLimiter RateBucket =>  new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = GetOrDefault(RateTokenLimit == 0 ? Requests : RateTokenLimit, 5),
+            TokensPerPeriod = GetOrDefault(Requests, 5),
+            ReplenishmentPeriod = MillisecondsToReplenish == 0 ? TimeSpan.FromSeconds(1) : TimeSpan.FromMilliseconds(MillisecondsToReplenish),
+            AutoReplenishment = true,
+            QueueLimit = GetOrDefault(QueueLimit, 10),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+        });
 
         /// <summary>
         /// Gets the default number of requests allowed within the replenishment period.
@@ -52,30 +60,20 @@ namespace Hubcon
             int rateTokenLimit = 0,
             int queueLimit = 10)
         {
-            static int GetOrDefault(int limit, int defaultLimit)
-            {
-                return limit switch
-                {
-                    0 => defaultLimit,
-                    var l => l
-                };
-            }
-
-            // Initializes the token bucket rate limiter with configured parameters.
-            RateBucket = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
-            {
-                TokenLimit = GetOrDefault(rateTokenLimit == 0 ? requests : rateTokenLimit, 5),
-                TokensPerPeriod = GetOrDefault(requests, 5),
-                ReplenishmentPeriod = millisecondsToReplenish == 0 ? TimeSpan.FromSeconds(1) : TimeSpan.FromMilliseconds(millisecondsToReplenish),
-                AutoReplenishment = true,
-                QueueLimit = GetOrDefault(queueLimit, 10),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-            });
 
             Requests = requests;
             MillisecondsToReplenish = millisecondsToReplenish;
             RateTokenLimit = rateTokenLimit;
             QueueLimit = queueLimit;
+        }
+        
+        static int GetOrDefault(int limit, int defaultLimit)
+        {
+            return limit switch
+            {
+                0 => defaultLimit,
+                var l => l
+            };
         }
     }
 }

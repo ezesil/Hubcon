@@ -147,15 +147,14 @@ namespace HubconTest
                         x.MaxConcurrentRequestsPerIp = 999_999;
                         x.MaxConnectionsPerIp = 999_999;
                         x.MaxConnections = 999_999;
-                        x.UseRateLimiters = false;
-                        x.TransportLimiterOptions = new TokenBucketRateLimiterOptions()
-                        {
-                            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
-                            AutoReplenishment = true,
-                            TokenLimit = 100000,
-                            TokensPerPeriod = 100000,
-                            QueueLimit = 100
-                        };
+                        
+                        x.UseRateLimiters = true;
+                        x.TransportLimitPerSecond = 999_999;
+                        x.InvokeOperationLimitPerSecond = 999_999;
+                        x.CallOperationLimitPerSecond = 999_999;
+                        x.IngestOperationLimitPerSecond = 999_999;
+                        x.StreamOperationLimitPerSecond = 999_999;
+                        
                         x.ConnectionAuthHandlerType = typeof(JwtAuthHandler);
                         x.LoggingEnabled = true;
                         x.AllowRemoteCancellation = true;
@@ -166,20 +165,13 @@ namespace HubconTest
                     config.ConfigureTransport<HttpTransport>(x =>
                     {
                         x.MaxConcurrentRequestsPerIp = 999_999;
-                        x.UseRateLimiters = false;
-                        x.TransportLimiterOptions = new TokenBucketRateLimiterOptions()
-                        {
-                            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
-                            AutoReplenishment = true,
-                            TokenLimit = 1000,
-                            TokensPerPeriod = 1000,
-                            QueueLimit = 100
-                        };
+                        x.UseRateLimiters = true;
+                        x.TransportLimitPerSecond = 50;
+                        x.IngestOperationLimitPerSecond = 50;
                         x.LoggingEnabled = true;
                         x.TokenValidationParameters = tokenValidationParameters;
                     });
 
-                    config.DisableAllRateLimiters();
                     config.EnableRequestDetailedErrors();
                 });
                 

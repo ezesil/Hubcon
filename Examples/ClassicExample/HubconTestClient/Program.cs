@@ -126,6 +126,15 @@ internal class Program
 
         await TestRPS(scope);
 
+        // var paralellClient = scope.ServiceProvider.GetRequiredService<IUserContract>();
+        //
+        // while (true)
+        // {
+        //     logger.LogInformation("Sending...");
+        //     await paralellClient.Execute(x => x.GetTemperatureFromServerWithInput(new TestInputClass("658","346","546"), default));
+        //     Console.ReadKey();
+        // }
+        
         Console.ReadKey();
     }
 

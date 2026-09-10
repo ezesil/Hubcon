@@ -15,19 +15,17 @@ namespace Hubcon.Server.Core.RateLimiting
         IInternalServerOptions options,
         IOperationConfigRegistry operationConfigRegistry,
         IOperationRegistry operationRegistry,
-        IRateLimitAuthority globalAuthority) // LocalAuthority registrado por defecto en DI
+        IRateLimitAuthority globalAuthority)
         : IGlobalRateLimiterManager
     {
         private readonly SettingsManager _settingsManager =
             new(operationRegistry, operationConfigRegistry);
-
-        // Resolución: per-transport override ?? global — un solo punto de decisión
+        
         private IRateLimitAuthority ResolveAuthority(HubconTransportAttribute transport) =>
-            options.TransportAuthorities.TryGetValue(transport.GetType(), out var authority)
-                ? authority
+            options.TransportSettings.TryGetValue(transport, out var authority)
+                ? authority.TransportRateLimitAuthority ?? globalAuthority
                 : globalAuthority;
 
-        // ── TryAcquire principal ──────────────────────────────────────────
         public ValueTask<bool> TryAcquireAsync(
             string anchorKey,
             MessageType type,
@@ -40,35 +38,39 @@ namespace Hubcon.Server.Core.RateLimiting
 
             try
             {
-                var authority = ResolveAuthority(transport);
                 var settings = GetTransportSettings(transport);
-                var token = transport.GetType().MetadataToken;
 
-                // Capa 1 — Global por transporte
+                if (!settings.UseRateLimiters) 
+                    return new ValueTask<bool>(true);
+                
+                var authority = ResolveAuthority(transport);
+                var token = transport.TransportType.MetadataToken;
+
+                // Per transport
                 var globalKey = new RateLimiterKey(anchorKey, -1, token);
-                if (!authority.TryAcquire(globalKey, settings.GlobalLimit, settings.Window, permits))
+                if (!authority.TryAcquire(globalKey, settings.TransportLimitPerSecond, TimeSpan.FromSeconds(1), permits))
                     return new(false);
 
-                // Capa 2 — MessageType
+                // Per message type
                 var group = GetGroupKey(type);
                 if (group >= 0)
                 {
                     var typeLimit = GetLimitFromSettings(settings, group);
-                    if (typeLimit.HasValue)
+                    if (typeLimit.HasValue && typeLimit != 0)
                     {
                         var typeKey = new RateLimiterKey(anchorKey, group, token);
-                        if (!authority.TryAcquire(typeKey, typeLimit.Value, settings.Window, permits))
+                        if (!authority.TryAcquire(typeKey, typeLimit.Value, TimeSpan.FromSeconds(1), permits))
                             return new(false);
                     }
                 }
-
+                
                 if (operation is null) return new(true);
-
-                // Capa 3 — Contract
+                
+                // Per contract
                 if (!TryAcquireContractLimit(anchorKey, operation, transport, authority, settings, permits))
                     return new(false);
 
-                // Capa 4 — Operation
+                // Per operation
                 if (!TryAcquireOperationLimit(anchorKey, operation, transport, authority, settings, permits))
                     return new(false);
 
@@ -79,9 +81,8 @@ namespace Hubcon.Server.Core.RateLimiting
                 return new(false);
             }
         }
-
-        // ── TryAcquire con Guid (linked operations) ───────────────────────
-        public ValueTask<bool> TryAcquireAsync(
+        
+        public ValueTask<bool> TryAcquireForResourceAsync(
             string anchorKey,
             MessageType type,
             Guid resourceId,
@@ -93,33 +94,37 @@ namespace Hubcon.Server.Core.RateLimiting
 
             try
             {
-                var authority = ResolveAuthority(transport);
                 var settings = GetTransportSettings(transport);
-                var token = transport.GetType().MetadataToken;
+                
+                if (!settings.UseRateLimiters) 
+                    return new ValueTask<bool>(true);
+                
+                var authority = ResolveAuthority(transport);
+                var token = transport.TransportType.MetadataToken;
 
-                // Capa 1 — Global
+                // Global
                 var globalKey = new RateLimiterKey(anchorKey, -1, token);
-                if (!authority.TryAcquire(globalKey, settings.GlobalLimit, settings.Window, permits))
+                if (!authority.TryAcquire(globalKey, settings.TransportLimitPerSecond, TimeSpan.FromSeconds(1), permits))
                     return new(false);
 
-                // Capa 2 — MessageType
+                // MessageType
                 var group = GetGroupKey(type);
                 if (group >= 0)
                 {
                     var typeLimit = GetLimitFromSettings(settings, group);
-                    if (typeLimit.HasValue)
+                    if (typeLimit.HasValue && typeLimit != 0)
                     {
                         var typeKey = new RateLimiterKey(anchorKey, group, token);
-                        if (!authority.TryAcquire(typeKey, typeLimit.Value, TimeSpan.FromSeconds(15), permits))
+                        if (!authority.TryAcquire(typeKey, typeLimit.Value, TimeSpan.FromSeconds(1), permits))
                             return new(false);
                     }
                 }
 
-                // Capa 3 — Guid linked (RateBucket del atributo — pendiente de migrar a WheelRateLimiter)
+                // Capa 3 — Guid linked
                 if (resourceId != Guid.Empty)
                 {
                     var linkedSettings = GetLinkedSettings(type, resourceId);
-                    if (linkedSettings?.RateBucket != null)
+                    if (linkedSettings != null)
                         return AcquireLinkedAsync(linkedSettings.RateBucket, permits, cancellationToken);
                 }
 
@@ -131,7 +136,6 @@ namespace Hubcon.Server.Core.RateLimiting
             }
         }
 
-        // ── Contract limiter ──────────────────────────────────────────────
         private bool TryAcquireContractLimit(
             string anchorKey,
             IOperationEndpoint endpoint,
@@ -151,9 +155,9 @@ namespace Hubcon.Server.Core.RateLimiting
             // Anchor incluye contract name — el blueprint.SimpleContractName es constante,
             // no hay forma de evitar el string aquí sin un struct de 3 strings
             var key = new RateLimiterKey($"{anchorKey}:{blueprint.SimpleContractName}", -2,
-                transport.GetType().MetadataToken);
+                transport.TransportType.MetadataToken);
 
-            return authority.TryAcquire(key, attr.Limit, attr.Window, permits);
+            return authority.TryAcquire(key, attr.RateTokenLimit, TimeSpan.FromMilliseconds(attr.MillisecondsToReplenish), permits);
         }
 
         // ── Operation limiter ─────────────────────────────────────────────
@@ -166,16 +170,16 @@ namespace Hubcon.Server.Core.RateLimiting
             int permits)
         {
             var attr = _settingsManager.GetSettings<RateLimitAttribute>(endpoint, transport, static () => null!);
-            if (attr is null) return true;
+            if (attr is null || attr.RateTokenLimit == 0) return true;
 
             if (!operationRegistry.TryGetOperationBlueprint(endpoint, transport, out var blueprint))
                 return true;
 
             var key = new RateLimiterKey(
                 $"{anchorKey}:{blueprint!.SimpleContractName}:{blueprint.OperationName}", -3,
-                transport.GetType().MetadataToken);
+                transport.TransportType.MetadataToken);
 
-            return authority.TryAcquire(key, attr.Limit, attr.Window, permits);
+            return authority.TryAcquire(key, attr.RateTokenLimit, TimeSpan.FromMilliseconds(attr.MillisecondsToReplenish), permits);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────
@@ -195,7 +199,7 @@ namespace Hubcon.Server.Core.RateLimiting
                 or MessageType.ingest_data_with_ack or MessageType.ingest_complete
                 or MessageType.ingest_result => 4,
             MessageType.token_update => 5,
-            _ => -1, // sin límite
+            _ => -1
         };
 
         private static int? GetLimitFromSettings(ITransportSettings settings, int group) => group switch
@@ -212,15 +216,15 @@ namespace Hubcon.Server.Core.RateLimiting
         private static async ValueTask<bool> AcquireLinkedAsync(RateLimiter bucket, int permits, CancellationToken ct)
             => (await bucket.AcquireAsync(permits, ct)).IsAcquired;
 
-        public ValueTask Link(string anchorKey, Guid id, HubconTransportAttribute transport, IOperationRequest request)
+        public ValueTask Link(string anchorKey, Guid id, HubconTransportAttribute transportAttribute, IOperationRequest request)
         {
-            if (!operationRegistry.TryGetOperationBlueprint(request, transport, out var blueprint))
+            if (!operationRegistry.TryGetOperationBlueprint(request, transportAttribute, out var blueprint))
                 return new();
 
+            var state = (registry: operationConfigRegistry, id);
+            
             operationConfigRegistry.Link(id, blueprint!);
-            cache.Set($"link_{anchorKey}_{id}", request,
-                static state => state.registry.Unlink(state.id),
-                (registry: operationConfigRegistry, id));
+            cache.Set($"link_{anchorKey}_{id}", request, () => state.registry.Unlink(state.id));
 
             return new();
         }

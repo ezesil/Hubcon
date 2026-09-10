@@ -88,6 +88,7 @@ namespace Hubcon.Server
             Services.AddTransient(typeof(Lazy<>), typeof(LazyResolver<>));
             Services.AddSingleton<IOperationConfigRegistry, OperationConfigRegistry>();
             Services.AddSingleton<IGlobalRateLimiterManager, GlobalRateLimiterManager>();
+            Services.AddSingleton<IRateLimitAuthority, LocalLimiterAuthority>();
             Services.AddScoped<IRequestHandler, RequestHandler>();
 
             foreach (var services in additionalServices)

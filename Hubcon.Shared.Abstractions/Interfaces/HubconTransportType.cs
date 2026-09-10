@@ -91,6 +91,11 @@ namespace Hubcon
             return (T)value;
         }
 
+        /// <summary>
+        /// The cached transport attribute type.
+        /// </summary>
+        public Type TransportType => GetType();
+        
         protected ITransportSettings? _defaultTransportSettings;
 
         /// <summary>
