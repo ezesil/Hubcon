@@ -9,6 +9,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using System.Timers;
+using Hubcon.Shared.Core.Tools;
 
 namespace Hubcon.Shared.Core.Websockets.Events
 {
@@ -30,6 +32,7 @@ namespace Hubcon.Shared.Core.Websockets.Events
         public event Action? Error;
         public event Action<T>? Next;
         private readonly SemaphoreSlim _gate = new(1, 1);
+        private AtomicPass _completeOnEmptyPass = new(); 
 
         public ChannelAsyncObserver(IDynamicConverter converter, BoundedChannelOptions? options = null)
         {
@@ -93,9 +96,21 @@ namespace Hubcon.Shared.Core.Websockets.Events
             await foreach (var item in _channel.Reader.ReadAllAsync())
             {
                 yield return item;
+                
+                if (_completeOnEmptyPass.WasAcquired && _channel.Reader.Count == 0)
+                {
+                    Complete();
+                }
             }
 
-            disposeAction?.Invoke();
+            try
+            {
+                disposeAction?.Invoke();
+            }
+            catch
+            {
+                // Ignored
+            }
         }
 
         public async Task<T> ReadItemAsync(CancellationToken cancellationToken = default)
@@ -113,40 +128,77 @@ namespace Hubcon.Shared.Core.Websockets.Events
 
         public void OnCompleted()
         {
+            if (!_completeOnEmptyPass.TryAcquirePass()) return;
+            
+            _completeWhenEmptyTimer.Elapsed += CompleteWhenEmpty;
+            _completeWhenEmptyTimer.Start();
+        }
+
+        private readonly System.Timers.Timer _completeWhenEmptyTimer = new()
+        {
+            AutoReset = true,
+            Enabled = false,
+            Interval = 100
+        };
+        
+        private void CompleteWhenEmpty(object? sender, ElapsedEventArgs e)
+        {
+            if (_completed.Task.IsCompleted) return;
+
+            if (_channel.Reader.Count == 0)
+            {
+                _completeWhenEmptyTimer.Stop();
+                _completeWhenEmptyTimer.Elapsed -= CompleteWhenEmpty;
+                _completeWhenEmptyTimer.Dispose();
+                Complete();
+            }
+        }
+        
+        private void Complete()
+        {
+            if (_completed.Task.IsCompleted) return;
+            
             try
             {
-                var completed = _channel.Writer.TryComplete();
+                _channel.Writer.TryComplete();
+                _completed.TrySetResult(true);
+                Completed?.Invoke();
             }
-            catch (Exception ex)
+            catch
             {
+                // Ignored
             }
-
-            _completed.TrySetResult(true);
-            Completed?.Invoke();
         }
 
         public void OnError(Exception error)
         {
             try
             {
-                var completed = _channel.Writer.TryComplete();
+                _ = _channel.Writer.TryComplete();
+                _completed.TrySetException(error);
+                Error?.Invoke();
             }
-            catch (Exception ex)
+            catch
             {
+                // Ignored
             }
 
-            _completed.TrySetException(error);
-            Error?.Invoke();
         }
 
         public async void OnNext(T value)
         {
-            _gate.Wait();
+            if (_completeOnEmptyPass.WasAcquired) return;
+            
+            await _gate.WaitAsync();
 
             try
             {
                 await WriteToChannelAsync(value);
                 Next?.Invoke(value);
+            }
+            catch
+            {
+                // Ignored
             }
             finally
             {

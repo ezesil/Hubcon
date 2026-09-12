@@ -112,7 +112,6 @@ namespace Hubcon.Client.Core.Transports.Websockets
             await EnsureConnectedAsync();
 
             var streamSession = await _webSocket!.GetStreamSession<T>(request, remoteCancelEnabled, cancellationToken);
-
             return streamSession.GetObservable();
         }
 

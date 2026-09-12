@@ -1015,7 +1015,7 @@ namespace Hubcon.Server.Core.Websockets.Middleware
 
                 if (streamResult.Failure)
                 {
-                    await HandleError(streamInitMessage.Id, HubconResponse.StatusUnauthorized, context);
+                    await HandleError(streamInitMessage.Id, streamResult, context);
                     return;
                 }
 
@@ -1056,16 +1056,13 @@ namespace Hubcon.Server.Core.Websockets.Middleware
                     }
                     else
                     {
-                        if (!localCts.IsCancellationRequested)
-                        {
-                            var response = new StreamDataMessage(
-                                streamInitMessage.Id,
-                                context.ConnectionId,
-                                context.Converter.SerializeToElement(item)
-                            );
+                        var response = new StreamDataMessage(
+                            streamInitMessage.Id,
+                            context.ConnectionId,
+                            context.Converter.SerializeToElement(item)
+                        );
 
-                            await context.Sender.SendAsync(response);
-                        }
+                        await context.Sender.SendAsync(response);
                     }
                 }
             }

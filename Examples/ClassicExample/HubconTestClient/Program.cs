@@ -100,6 +100,8 @@ internal class Program
         await Task.Delay(100);
         await TestHubconResponse(client2, logger);
         await Task.Delay(100);
+        await TestCall(client2, logger);
+        await Task.Delay(100);
         await TestValidations(client, logger);
         await Task.Delay(100);
         await TestIngest(client, logger);
@@ -117,24 +119,37 @@ internal class Program
         {
             MaxDegreeOfParallelism = 1000
         };
-
+        
         await WarmUpClients(scope);
-
+        
         var stats = new LatencyHistogram();
-
+        
         await TestLatency(scope, stats);
-
+        
         await TestRPS(scope);
 
         // var paralellClient = scope.ServiceProvider.GetRequiredService<IUserContract>();
         //
+        // var sw = new Stopwatch();
+        // logger.LogInformation("Waiting input to send...");
+        //
         // while (true)
         // {
-        //     logger.LogInformation("Sending...");
-        //     await paralellClient.Execute(x => x.GetTemperatureFromServerWithInput(new TestInputClass("658","346","546"), default));
         //     Console.ReadKey();
+        //     sw.Reset();
+        //     sw.Start();
+        //     logger.LogInformation("Sending...");
+        //     var result = await paralellClient.Execute(x => x.GetMessages(10));
+        //     
+        //     await foreach (var item in result.Data!)
+        //     {
+        //         logger.LogInformation(item);
+        //     }
+        //     
+        //     sw.Stop();
+        //     logger.LogInformation($"Result time: {sw.ElapsedMilliseconds} ms");
         // }
-        
+        //
         Console.ReadKey();
     }
 
@@ -322,6 +337,16 @@ internal class Program
         await Task.WhenAll(testTasks);
     }
 
+    private static async Task TestCall(ISecondTestContract client2, ILogger<IUserContract> logger)
+    {
+        var response = await client2.Execute(x => x.TestVoid());
+        
+        if (response.Success)
+            logger.LogInformation($"Test call OK.");
+        else
+            throw new Exception($"Error de test call: {response.Error}");
+    }
+    
     private static async Task TestHubconResponse(ISecondTestContract client2, ILogger<IUserContract> logger)
     {
         var response = await client2.Execute(x => x.TestHubconResponse());

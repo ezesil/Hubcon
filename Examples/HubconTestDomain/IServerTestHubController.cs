@@ -43,7 +43,7 @@ namespace HubconTestDomain
         [ParseSseMessage("data: ")]
         [ParseSseMessage("event: ")]
         [ParseEndSseMessage("[DONE]")]
-        [HttpTransport]
+        // [WebSocketTransport]
         IAsyncEnumerable<string> GetMessages(int count);
 
         Task ShowTextOnServer();

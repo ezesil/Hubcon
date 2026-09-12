@@ -25,6 +25,7 @@ namespace Hubcon.Shared.Core.Websockets.Messages.Streams
             _data = data;
         }
 
+        [JsonPropertyName("data")]
         public JsonElement Data => _data ??= Extract<JsonElement>("data");
     }
 }

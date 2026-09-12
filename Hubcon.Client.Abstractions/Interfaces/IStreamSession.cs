@@ -4,12 +4,13 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using Hubcon.Shared.Core.Websockets.Messages.Streams;
 
 namespace Hubcon.Client.Abstractions.Interfaces
 {
     public interface IStreamSession : IDisposable
     {
-        BaseMessage Payload { get; }
+        StreamInitMessage Payload { get; }
 
         void AddCancellation(Action callback, CancellationToken cancellationToken);
         void AddCancellation(Action<object?> callback, object? state, CancellationToken cancellationToken);
@@ -19,7 +20,7 @@ namespace Hubcon.Client.Abstractions.Interfaces
 
     public interface IStreamSession<out T> : IStreamSession
     {
-        BaseMessage Payload { get; }
+        StreamInitMessage Payload { get; }
 
         IObservable<T> GetObservable();
     }

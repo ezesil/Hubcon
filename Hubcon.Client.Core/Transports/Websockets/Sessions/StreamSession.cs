@@ -5,11 +5,13 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Hubcon.Client.Abstractions.Interfaces;
+using Hubcon.Shared.Core.Tools;
 using Hubcon.Shared.Core.Websockets.Events;
 using Hubcon.Shared.Core.Websockets.Heartbeat;
 using Hubcon.Shared.Core.Websockets.Interfaces;
 using Hubcon.Shared.Core.Websockets.Messages.Cancellation;
 using Hubcon.Shared.Core.Websockets.Messages.Generic;
+using Hubcon.Shared.Core.Websockets.Messages.Streams;
 
 namespace Hubcon.Client.Core.Transports.Websockets.Sessions
 {
@@ -18,7 +20,7 @@ namespace Hubcon.Client.Core.Transports.Websockets.Sessions
     /// </summary>
     internal abstract class StreamSession : IStreamSession, IDisposable
     {
-        public abstract BaseMessage Payload { get; }
+        public abstract StreamInitMessage Payload { get; }
         
         /// <inheritdoc/>
         public abstract void Next(JsonElement streamDataData);
@@ -41,10 +43,11 @@ namespace Hubcon.Client.Core.Transports.Websockets.Sessions
     {
         private readonly GenericObservable<T> _observable;
         private readonly CancellationTokenSource _cts;
-        private readonly BaseMessage _payload;
+        private readonly StreamInitMessage _payload;
         private readonly Action? _onFinishedCallback;
         private readonly HeartbeatWatcher _heartbeatWatcher;
         private CancellationTokenRegistration? _cancellationTrigger;
+        private readonly AtomicPass _streamCompletedPass = new();
 
         /// <summary>
         /// Default constructor.
@@ -52,7 +55,7 @@ namespace Hubcon.Client.Core.Transports.Websockets.Sessions
         /// <param name="payload"></param>
         /// <param name="context"></param>
         /// <param name="onFinishedCallback"></param>
-        public StreamSession(BaseMessage payload, TransportContext context, Action? onFinishedCallback = null)
+        public StreamSession(StreamInitMessage payload, TransportContext context, Action? onFinishedCallback = null)
         {
             _cts = new CancellationTokenSource();
             _payload = payload;
@@ -77,7 +80,7 @@ namespace Hubcon.Client.Core.Transports.Websockets.Sessions
             });
         }
 
-        public override BaseMessage Payload => _payload;
+        public override StreamInitMessage Payload => _payload;
 
         /// <inheritdoc/>
         public override void Next(JsonElement streamData)
@@ -117,6 +120,8 @@ namespace Hubcon.Client.Core.Transports.Websockets.Sessions
         /// <inheritdoc/>
         public override void Dispose()
         {
+            if (!_streamCompletedPass.TryAcquirePass()) return;
+            
             _observable.OnCompleted();
             _cts.Cancel();
             _ = _heartbeatWatcher.DisposeAsync();

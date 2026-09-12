@@ -26,6 +26,7 @@ namespace Hubcon.Shared.Core.Websockets.Messages.Streams
             _payload = payload;
         }
 
-        public JsonElement Payload => _payload ??= Extract<JsonElement>("payload");
+        [JsonPropertyName("p")]
+        public JsonElement Payload => _payload ??= Extract<JsonElement>("p");
     }
 }

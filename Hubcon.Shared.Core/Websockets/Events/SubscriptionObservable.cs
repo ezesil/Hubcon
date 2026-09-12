@@ -91,7 +91,14 @@ namespace Hubcon.Shared.Core.Websockets.Events
 
             foreach (var o in snapshot)
             {
-                try { o.OnNext(value); } catch { /* Ignorar errores de observers */ }
+                try
+                {
+                    o.OnNext(value);
+                }
+                catch
+                {
+                    /* Ignorar errores de observers */
+                }
             }
         }
 
@@ -106,7 +113,14 @@ namespace Hubcon.Shared.Core.Websockets.Events
 
             foreach (var o in snapshot)
             {
-                try { o.OnError(ex); } catch { /* Ignorar errores */ }
+                try
+                {
+                    o.OnError(ex);
+                }
+                catch
+                {
+                    /* Ignorar errores */
+                }
             }
 
             onCancelCallback?.Invoke();
@@ -114,20 +128,22 @@ namespace Hubcon.Shared.Core.Websockets.Events
 
         public override void OnCompleted()
         {
-            foreach (var observer in _observers.ToArray())
+            lock (_observers)
             {
-                observer.OnCompleted();
-                UnsubscribeObserver(observer);
-            }
+                foreach (var observer in _observers.ToArray())
+                {
+                    observer.OnCompleted();
+                    UnsubscribeObserver(observer);
+                }
 
-            _observers.Clear();
+                _observers.Clear();
+            }
 
             onCancelCallback?.Invoke();
         }
 
         private void UnsubscribeObserver(IObserver<TMessage> observer)
         {
-
             lock (_observersLock)
             {
                 _observers.Remove(observer);

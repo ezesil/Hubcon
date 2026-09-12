@@ -17,7 +17,7 @@ namespace Hubcon.Server.Core.Websockets.Helpers
             {
                 var result = await socket.ReceiveAsync(firstPart.Memory, cancellationToken);
 
-                if ((result.MessageType != WebSocketMessageType.Binary) | (result.Count > _maxMessageSize))
+                if ((result.MessageType != WebSocketMessageType.Binary) || (result.Count > _maxMessageSize))
                 {
                     if (result.MessageType == WebSocketMessageType.Close && socket.State == WebSocketState.CloseReceived)
                         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnected", CancellationToken.None);
