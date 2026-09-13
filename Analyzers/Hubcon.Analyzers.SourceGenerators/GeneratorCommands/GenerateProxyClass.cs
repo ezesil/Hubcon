@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Hubcon.Analyzers.SourceGenerators.Extensions;
@@ -52,8 +53,12 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                 $"{baseIndent}    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors, typeof({proxyName}))]");
             sb.AppendLine($"{baseIndent}    public {proxyName}() {{ }}");
             sb.AppendLine();
+            
+            var props = iface.AllInterfaces
+                .Prepend(iface)
+                .SelectMany(i => i.GetMembers().OfType<IPropertySymbol>());
 
-            foreach (var property in iface.GetMembers().OfType<IPropertySymbol>())
+            foreach (var property in props)
             {
                 var propertyName = property.Name;
                 var propertyType = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -76,11 +81,17 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                 sb.AppendLine();
             }
 
-            foreach (var method in iface
-                         .GetMembers()
-                         .OfType<IMethodSymbol>()
-                         .Where(m => !m.Name.StartsWith("get_") && !m.Name.StartsWith("set_")))
+            var methods = iface.AllInterfaces
+                .Prepend(iface)
+                .SelectMany(i => i.GetMembers().OfType<IMethodSymbol>())
+                .Where(m => !m.Name.StartsWith("get_") && !m.Name.StartsWith("set_"))
+                .GroupBy(m => m.GetMethodSymbolSignature())
+                .Select(g => g.First());
+
+            foreach (var method in methods)
             {
+                var stringMethodName = $"\"{method.GetMethodSymbolSignature()}\"";
+                
                 var returnType = method.ReturnType.ToDisplayString();
                 var methodName = method.Name;
                 var parameters = string.Join(", ",
@@ -89,7 +100,6 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                 sb.AppendLine($"{baseIndent}    public {returnType} {methodName}({parameters})");
                 sb.AppendLine($"{baseIndent}    {{");
 
-                var stringMethodName = $"\"{method.GetMethodSymbolSignature()}\"";
                 var callMethod = "";
 
 

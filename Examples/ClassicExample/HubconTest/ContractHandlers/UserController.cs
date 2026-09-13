@@ -14,7 +14,7 @@ namespace HubconTest.ContractHandlers
     [UseJwt]
     [UseApiKey("API-KEY", overrideAuthorization: true)]
     [Authorize(Roles = "Manager")]
-    public class UserController(ILogger<UserController> logger) : IUserContract
+    public class UserController(ILogger<UserController> logger) : IUserContract, IChildUserContract
     {
         [UseMiddleware<LocalLoggingMiddleware>]
         public async Task CreateUser(CancellationToken cancellationToken)
@@ -255,8 +255,15 @@ namespace HubconTest.ContractHandlers
             logger.LogInformation("Ingest terminado exitosamente");
         }
 
-        [Authorize(Roles = "Manager")]
-        public async Task<HubconResponse<TestInputClass>> GetTemperatureFromServerWithInput(TestInputClass input, CancellationToken cancellationToken = default)
+        [Authorize(Roles = "Manager")] 
+        async Task<HubconResponse<TestInputClass>> IUserContract.GetTemperatureFromServerWithInput(TestInputClass input, CancellationToken cancellationToken = default)
+        {
+            var response = HubconResponse.OkT(input);
+            return response;
+        }
+        
+        [Authorize(Roles = "Manager")] 
+        async Task<HubconResponse<TestInputClass>> IChildUserContract.GetTemperatureFromServerWithInput(TestInputClass input, CancellationToken cancellationToken = default)
         {
             var response = HubconResponse.OkT(input);
             return response;

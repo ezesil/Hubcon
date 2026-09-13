@@ -11,7 +11,8 @@ namespace HubconAnalyzers.SourceGenerators.Extensions
     {
         public static string GetMethodSymbolSignature(this IMethodSymbol method, bool useHashed = true)
         {
-            string methodName = method.Name;
+            string methodName = method.Name.Split('.').Last();
+            ;
             string parameters = string.Empty;
 
             if (method.Parameters.Length > 0)

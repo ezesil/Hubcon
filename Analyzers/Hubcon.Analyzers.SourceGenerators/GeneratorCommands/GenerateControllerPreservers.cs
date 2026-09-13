@@ -168,8 +168,7 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                 var attributeArray = member.GetAllParameterAndPropertyAttributes();
                 attributes.AddRange(attributeArray);
                 
-                if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary &&
-                    method.DeclaredAccessibility == Accessibility.Public)
+                if (member is IMethodSymbol method && method.MethodKind == MethodKind.Ordinary && method.DeclaredAccessibility == Accessibility.Public)
                 {
                     methodIndex++;
                     var paramsList = string.Join(", ", method.Parameters.Select(p =>
@@ -183,7 +182,15 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                     {
                         var rI = $"r_c{constructorIndex}_m{methodIndex}_{suffix}";
 
-                        sb.AppendLine($"{baseIndent}            var {rI} = {targetVar}.{method.Name}({paramsList});");
+                        var controllerMethod = typeSymbol.FindControllerImplementation(method);
+                        if (controllerMethod!.DeclaredAccessibility == Accessibility.Private)
+                        {
+                            sb.AppendLine($"{baseIndent}            var {rI} = (({method.ContainingType.ToDisplayString()}){targetVar}).{method.Name}({paramsList});");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"{baseIndent}            var {rI} = {targetVar}.{method.Name}({paramsList});");
+                        }
                         sb.AppendLine($"{baseIndent}            _ = {rI}?.GetHashCode();");
                     }
                 }

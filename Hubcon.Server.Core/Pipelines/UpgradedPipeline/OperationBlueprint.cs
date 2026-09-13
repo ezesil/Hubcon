@@ -52,9 +52,9 @@ namespace Hubcon.Server.Core.Pipelines.UpgradedPipeline
         public IList<Attribute> Attributes { get; }
         public ConcurrentDictionary<Type, Attribute> ConfigurationAttributes { get; }
         public ConcurrentDictionary<Type, Attribute> TransportAttributes { get; }
-        
+
         public IImmutableList<PropertyInfo> WrapperProperties { get; }
-        
+
         public HttpMethod? HttpVerb { get; }
 
         public bool ReturnsHubconResponse { get; }
@@ -88,50 +88,48 @@ namespace Hubcon.Server.Core.Pipelines.UpgradedPipeline
             HttpVerb = httpMethod;
             // ControllerFactory = ActivatorUtilities.CreateFactory(controllerType, Type.EmptyTypes);
 
-            if (interfaceMemberInfo is MethodInfo methodInfo)
-            {
-                foreach (var parameter in methodInfo.GetParameters())
-                {
-                    if (parameter.ParameterType == typeof(CancellationToken))
-                        continue;
-
-                    ParameterTypes.TryAdd(parameter.Name!, parameter.ParameterType);
-                }
-
-                RawReturnType = methodInfo.ReturnType;
-
-                ReturnType = methodInfo.ReturnType.IsGenericType &&
-                       methodInfo.ReturnType.GetGenericTypeDefinition() == typeof(Task<>)
-                       ? methodInfo.ReturnType.GetGenericArguments()[0]
-                       : methodInfo.ReturnType;
-                
-                HasReturnType = ReturnType != typeof(void) && ReturnType != typeof(Task);
-
-                Attributes = ControllerType.GetMethod(
+            var contractToGather = contractType != interfaceMemberInfo.DeclaringType ? interfaceMemberInfo.DeclaringType : ContractType;
+            
+            var methodInfo = new[] { contractToGather }
+                .Concat(contractToGather.GetInterfaces())
+                .Select(i => i.GetMethod(
                     interfaceMemberInfo.Name,
-                    methodInfo.GetParameters().Select(x => x.ParameterType).ToArray())!
-                    .GetCustomAttributes()
-                    .ToList();
+                    ((MethodInfo)controllerMemberInfo).GetParameters().Select(x => x.ParameterType).ToArray()))
+                .FirstOrDefault(m => m != null);
 
-               ContractType.GetMethod(
-                    interfaceMemberInfo.Name,
-                    methodInfo.GetParameters().Select(x => x.ParameterType).ToArray())!
-                    .GetCustomAttributes()
-                    .ToList()
-                    .ForEach(x => Attributes.Add(x));         
-
-                endpointAttributes = Attributes
-                    .Where(x => x is AuthorizeAttribute or AllowAnonymousAttribute or AnonymousAttribute)
-                    .ToList();
-            }
-            else
+            foreach (var parameter in methodInfo.GetParameters())
             {
-                throw new NotSupportedException($"The type {interfaceMemberInfo.GetType()} is not supported as an operation type. Use MethodInfo instead.");
+                if (parameter.ParameterType == typeof(CancellationToken))
+                    continue;
+
+                ParameterTypes.TryAdd(parameter.Name!, parameter.ParameterType);
             }
+
+            RawReturnType = methodInfo.ReturnType;
+
+            ReturnType = methodInfo.ReturnType.IsGenericType &&
+                         methodInfo.ReturnType.GetGenericTypeDefinition() == typeof(Task<>)
+                ? methodInfo.ReturnType.GetGenericArguments()[0]
+                : methodInfo.ReturnType;
+
+            HasReturnType = ReturnType != typeof(void) && ReturnType != typeof(Task);
+
+            var controllerMethod = (MethodInfo)controllerMemberInfo;
+
+            Attributes = controllerMethod.GetCustomAttributes().ToList();
+
+            methodInfo.GetCustomAttributes()
+                .ToList()
+                .ForEach(x => Attributes.Add(x));
+
+            endpointAttributes = Attributes
+                .Where(x => x is AuthorizeAttribute or AllowAnonymousAttribute or AnonymousAttribute)
+                .ToList();
 
             ReturnsHubconResponse = ReturnType.IsGenericType
-                && (ReturnType.GetGenericTypeDefinition() == typeof(IHubconResponse<>) || ReturnType.GetGenericTypeDefinition() == typeof(HubconResponse<>));
-            
+                                    && (ReturnType.GetGenericTypeDefinition() == typeof(IHubconResponse<>) ||
+                                        ReturnType.GetGenericTypeDefinition() == typeof(HubconResponse<>));
+
             var classAttributes = controllerType
                 .GetCustomAttributes()
                 .Where(x => x is AuthorizeAttribute or AllowAnonymousAttribute or AnonymousAttribute)
@@ -139,7 +137,8 @@ namespace Hubcon.Server.Core.Pipelines.UpgradedPipeline
 
             List<AuthorizeAttribute> combinedAuthorize = new List<AuthorizeAttribute>();
 
-            if (endpointAttributes.Any(a => a is AllowAnonymousAttribute or AnonymousAttribute) || classAttributes.Any(a => a is AllowAnonymousAttribute or AnonymousAttribute))
+            if (endpointAttributes.Any(a => a is AllowAnonymousAttribute or AnonymousAttribute) ||
+                classAttributes.Any(a => a is AllowAnonymousAttribute or AnonymousAttribute))
             {
                 RequiresAuthorization = false;
             }
@@ -155,9 +154,10 @@ namespace Hubcon.Server.Core.Pipelines.UpgradedPipeline
             AuthorizationAttributes = combinedAuthorize;
 
             PrecomputedRoles = AuthorizationAttributes
-                    .Where(a => !string.IsNullOrWhiteSpace(a.Roles))
-                    .SelectMany(a => a.Roles?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                .Where(a => !string.IsNullOrWhiteSpace(a.Roles))
+                .SelectMany(a =>
+                    a.Roles?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             PrecomputedPolicies = AuthorizationAttributes
                 .Where(a => !string.IsNullOrWhiteSpace(a.Policy))
@@ -178,12 +178,12 @@ namespace Hubcon.Server.Core.Pipelines.UpgradedPipeline
                 .ToList()
                 .ForEach(x => TransportAttributes.TryAdd(x.GetType(), x));
 
-            if(TransportAttributes.Count == 0)
+            if (TransportAttributes.Count == 0)
             {
                 Attributes
-                .Where(x => x is HubconTransportAttribute)
-                .ToList()
-                .ForEach(x => TransportAttributes.TryAdd(x.GetType(), x));
+                    .Where(x => x is HubconTransportAttribute)
+                    .ToList()
+                    .ForEach(x => TransportAttributes.TryAdd(x.GetType(), x));
             }
 
             if (TransportAttributes.Count == 0)
@@ -194,7 +194,7 @@ namespace Hubcon.Server.Core.Pipelines.UpgradedPipeline
                     .ToList()
                     .ForEach(x => TransportAttributes.TryAdd(x.GetType(), x));
 
-                ContractType
+                contractToGather
                     .GetCustomAttributes()
                     .OfType<HubconTransportAttribute>()
                     .ToList()
@@ -203,29 +203,34 @@ namespace Hubcon.Server.Core.Pipelines.UpgradedPipeline
 
             if (TransportAttributes.Count == 0)
             {
-                foreach(var transport in options.DefaultTransports)
+                foreach (var transport in options.DefaultTransports)
                 {
                     TransportAttributes.TryAdd(transport.Key, transport.Value);
                 }
             }
 
             PipelineBuilder = pipelineBuilder;
-            Invoker = EndpointManager.GetInvoker(ControllerType, ContractType, methodInfo) 
-                      ?? throw new HubconGenericException($"Could not find an invoker for the '{methodInfo.Name}' endpoint in '{methodInfo.DeclaringType}' controller. This error could be caused by an error while executing the source generators.");
+            Invoker = EndpointManager.GetInvoker(ControllerType, ContractType, methodInfo)
+                      ?? throw new HubconGenericException(
+                          $"Could not find an invoker for the '{methodInfo.Name}' endpoint in '{methodInfo.DeclaringType}' controller. This error could be caused by an error while executing the source generators.");
 
-            
-            ParameterWrapper = ParameterTypes.IsEmpty ? null : new ParameterWrapper(ControllerType, contractType, methodInfo);
-            
+
+            ParameterWrapper = ParameterTypes.IsEmpty
+                ? null
+                : new ParameterWrapper(ControllerType, contractType, methodInfo);
+
             CallWrapperType = EndpointManager.GetWrapperType(ControllerType, contractType, methodInfo);
-            
+
             var handlerTypes = controllerType.GetCustomAttributes()
+                .Concat(contractToGather!.GetCustomAttributes())
                 .Concat(controllerMemberInfo!.GetCustomAttributes())
+                .Concat(methodInfo!.GetCustomAttributes())
                 .OfType<IUseAuthAttribute>();
 
             SecurityPolicy = new CompiledSecurityPolicy(
-                handlerTypes.ToList(), 
-                PrecomputedRoles.ToArray(), 
-                PrecomputedPolicies.ToArray(), 
+                handlerTypes.ToList(),
+                PrecomputedRoles.ToArray(),
+                PrecomputedPolicies.ToArray(),
                 !RequiresAuthorization
             );
         }

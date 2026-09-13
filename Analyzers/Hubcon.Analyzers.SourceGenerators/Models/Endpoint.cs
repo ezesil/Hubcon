@@ -8,7 +8,7 @@ namespace Hubcon.Analyzers.SourceGenerators.Models
 {
     public class Endpoint
     {
-        public string Name { get; }
+        public string SimpleName { get; }
         public string FullName { get; }
         public IMethodSymbol ControllerMethod { get; }
         public IMethodSymbol ContractMethod { get; }
@@ -17,18 +17,20 @@ namespace Hubcon.Analyzers.SourceGenerators.Models
         public IReadOnlyList<EndpointParameter> Parameters { get; }
         public string Identifier { get; }
 
-        public Endpoint(string name, IMethodSymbol controllerMethod, IMethodSymbol contractMethod,
+        public Endpoint(string name, INamedTypeSymbol contract, IMethodSymbol controllerMethod, IMethodSymbol contractMethod,
             HashSet<AttributeData> combinedAttributes)
         {
             var controller = controllerMethod.ContainingType;
-            Contract = contractMethod.ContainingType;
-            Identifier = $"{controller.Name}_{Contract.Name}_{controllerMethod.GetMethodSymbolSignature()}";
+            Contract = contract;
+            Identifier = $"{controller.Name}_{Contract.Name}_{controllerMethod.GetMethodSymbolSignature()}".Replace('.','_');
             
-            Name = name;
+            SimpleName = name;
+            
             ControllerMethod = controllerMethod;
             ContractMethod = contractMethod;
             CombinedAttributes = combinedAttributes;
-            FullName = $"{Contract.GetSafeName()}_{controller.Name}_{controllerMethod.GetMethodSymbolSignature()}";
+            var preFullName = contractMethod.ContainingNamespace + "_" + Contract.Name + "_" + controller.Name + "_" + controllerMethod.GetMethodSymbolSignature();
+            FullName = preFullName.Replace('.','_');
             
             var parametersList = new List<EndpointParameter>();
 

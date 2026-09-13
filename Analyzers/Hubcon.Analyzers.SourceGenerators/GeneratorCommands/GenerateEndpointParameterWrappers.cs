@@ -155,14 +155,14 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                     // GetWrapped / Populate
                     sb.AppendLine();
                     sb.AppendLine(
-                        $"        public static object GetWrapped(IReadOnlyDictionary<string, object> parameters_{endpoint.ControllerMethod.GetMethodSymbolSignature()})");
+                        $"        public static object GetWrapped(IReadOnlyDictionary<string, object> parameters_{endpoint.FullName})");
                     sb.AppendLine("        {");
                     sb.AppendLine($"             var wrapped = new {wrapperClassName}();");
                     foreach (var param in nonCancelParams)
                     {
                         string typeName = param.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                         sb.AppendLine(
-                            $"             wrapped.{param.Name} = parameters_{endpoint.ControllerMethod.GetMethodSymbolSignature()}.TryGetValue(\"{param.Name}\", out var {param.Name}_value) && {param.Name}_value != null ? ({typeName.Trim('?')}){param.Name}_value : {(typeName.EndsWith("?") ? "null" : "default!")};");
+                            $"             wrapped.{param.Name} = parameters_{endpoint.FullName}.TryGetValue(\"{param.Name}\", out var {param.Name}_value) && {param.Name}_value != null ? ({typeName.Trim('?')}){param.Name}_value : {(typeName.EndsWith("?") ? "null" : "default!")};");
                     }
 
                     sb.AppendLine("             return wrapped;");
@@ -170,13 +170,13 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                     sb.AppendLine();
 
                     sb.AppendLine(
-                        $"        public void Populate(IReadOnlyDictionary<string, object> parameters_{endpoint.ControllerMethod.GetMethodSymbolSignature()})");
+                        $"        public void Populate(IReadOnlyDictionary<string, object> parameters_{endpoint.FullName})");
                     sb.AppendLine("        {");
                     foreach (var param in nonCancelParams)
                     {
                         string typeName = param.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                         sb.AppendLine(
-                            $"             {param.Name} = parameters_{endpoint.ControllerMethod.GetMethodSymbolSignature()}.TryGetValue(\"{param.Name}\", out var {param.Name}_value) && {param.Name}_value != null ? ({typeName.Trim('?')}){param.Name}_value : {(typeName.EndsWith("?") ? "null" : "default!")};");
+                            $"             {param.Name} = parameters_{endpoint.FullName}.TryGetValue(\"{param.Name}\", out var {param.Name}_value) && {param.Name}_value != null ? ({typeName.Trim('?')}){param.Name}_value : {(typeName.EndsWith("?") ? "null" : "default!")};");
                     }
 
                     sb.AppendLine("        }");

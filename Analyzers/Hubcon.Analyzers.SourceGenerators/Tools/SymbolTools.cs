@@ -18,6 +18,45 @@ namespace Hubcon.Analyzers.SourceGenerators
                    && classSyntax.BaseList != null
                    && !classSyntax.Modifiers.Any(Microsoft.CodeAnalysis.CSharp.SyntaxKind.AbstractKeyword);
         }
+        
+        public static IMethodSymbol? FindControllerImplementation(this INamedTypeSymbol controller, IMethodSymbol interfaceMethod)
+        {
+            foreach (var member in controller.GetMembers().OfType<IMethodSymbol>())
+            {
+                // Explicit interface implementation
+                if (member.ExplicitInterfaceImplementations.Any(m =>
+                        SymbolEqualityComparer.Default.Equals(m, interfaceMethod)))
+                    return member;
+
+                // Implicit implementation — misma firma, público
+                if (member.DeclaredAccessibility == Accessibility.Public
+                    && member.Name == interfaceMethod.Name
+                    && member.Parameters.Length == interfaceMethod.Parameters.Length
+                    && member.Parameters.Select(p => p.Type)
+                        .SequenceEqual(
+                            interfaceMethod.Parameters.Select(p => p.Type),
+                            SymbolEqualityComparer.Default))
+                    return member;
+            }
+
+            return null;
+        }
+        
+        public static string? FindDeclaringInterface(this INamedTypeSymbol controller, IMethodSymbol method)
+        {
+            foreach (var iface in controller.AllInterfaces)
+            {
+                foreach (var ifaceMethod in iface.GetMembers().OfType<IMethodSymbol>())
+                {
+                    var impl = controller.FindImplementationForInterfaceMember(ifaceMethod);
+
+                    if (SymbolEqualityComparer.Default.Equals(impl, method))
+                        return iface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                }
+            }
+
+            return null;
+        }
 
         private static List<AttributeData> GetAllParameterAndPropertyAttributes(this IMethodSymbol method)
         {

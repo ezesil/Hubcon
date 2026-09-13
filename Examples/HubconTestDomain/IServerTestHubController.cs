@@ -32,10 +32,12 @@ namespace HubconTestDomain
 
     [WebSocketTransport]
     //[RateLimit(1)]
+    [HttpTransport]
     public interface IUserContract : IControllerContract
     {
         Task<int> GetTemperatureFromServer(string test, CancellationToken cancellationToken = default);
 
+        [HttpTransport]
         Task<HubconResponse<TestInputClass>> GetTemperatureFromServerWithInput([Required] TestInputClass input, CancellationToken cancellationToken = default);
 
         Task<HubconResponse<bool>> GetTemperatureFromServerCancelable(CancellationToken cancellationToken);

@@ -2,6 +2,7 @@ using System.Linq;
 using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 using Hubcon.Analyzers.SourceGenerators.Extensions;
+using HubconAnalyzers.SourceGenerators.Extensions;
 
 namespace Hubcon.Analyzers.SourceGenerators.Models
 {
@@ -20,23 +21,30 @@ namespace Hubcon.Analyzers.SourceGenerators.Models
 
             foreach (var contract in Contracts)
             {
-                foreach (var member in contract.GetMembers())
+                var members = contract.AllInterfaces
+                    .Prepend(contract)
+                    .SelectMany(i => i.GetMembers().OfType<IMethodSymbol>())
+                    .Where(m => !m.Name.StartsWith("get_") && !m.Name.StartsWith("set_"))
+                    .GroupBy(m => m.GetMethodSymbolSignature())
+                    .Select(g => g.First());
+                
+                foreach (var contractMethod in members)
                 {
-                    if (member is IMethodSymbol contractMethod && contractMethod.MethodKind == MethodKind.Ordinary)
+                    if (contractMethod.MethodKind == MethodKind.Ordinary)
                     {
                         var controllerMethod =
                             controller.FindImplementationForInterfaceMember(contractMethod) as IMethodSymbol;
 
                         if (controllerMethod == null) continue;
 
-                        string endpointName = contractMethod.Name;
+                        string endpointName = controllerMethod.Name.Split('.').Last();
 
                         var combinedAttributes = new HashSet<AttributeData>(AttributeTypeEqualityComparer.Instance);
 
                         foreach (var attr in contractMethod.GetAttributes()) combinedAttributes.Add(attr);
                         foreach (var attr in controllerMethod.GetAttributes()) combinedAttributes.Add(attr);
 
-                        endpointsList.Add(new Endpoint(endpointName, controllerMethod, contractMethod, combinedAttributes));
+                        endpointsList.Add(new Endpoint(endpointName, contract, controllerMethod, contractMethod, combinedAttributes));
                     }
                 }
             }

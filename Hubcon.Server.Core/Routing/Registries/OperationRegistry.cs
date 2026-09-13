@@ -15,6 +15,7 @@ using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using Hubcon;
+using Hubcon.Shared.Core.Tools;
 
 namespace Hubcon.Server.Core.Routing.Registries
 {
@@ -71,9 +72,11 @@ namespace Hubcon.Server.Core.Routing.Registries
 
             foreach (var interfaceType in interfaces)
             {
-                var methods = interfaceType
-                    .GetMethods()
+                var methods = new[] { interfaceType }
+                    .Concat(interfaceType.GetInterfaces())
+                    .SelectMany(i => i.GetMethods())
                     .Where(x => !x.Name.StartsWith("get_") && !x.Name.StartsWith("set_"))
+                    .DistinctBy(x => x.Name.Split('.').Last() + "(" + string.Join(",", x.GetParameters().Select(p => p.ParameterType.Name)) + ")")
                     .ToArray();
 
                 if (methods.Length == 0)
@@ -113,8 +116,8 @@ namespace Hubcon.Server.Core.Routing.Registries
                         continue;
 
                     var parameterTypes = method.GetParameters().Select(x => x.ParameterType).ToArray();
-                    var controllerMethod = controllerType.GetMethod(method.Name, parameterTypes);
-
+                    var controllerMethod = controllerType.FindControllerMethod(method.Name, parameterTypes, interfaceType);
+                        
                     Throw.If(controllerMethod == null, (controllerType, method), static x 
                         => new ArgumentNullException($"Could not find method {x.method.Name} in {x.controllerType.Name}."));
                     

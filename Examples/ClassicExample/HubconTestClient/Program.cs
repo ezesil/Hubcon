@@ -95,7 +95,20 @@ internal class Program
 
         await TestLogin(authManager, logger);
         await Task.Delay(100);
+        
+        var testModel = new TestInputClass("658","346","546");
 
+        var paralellClient2 = scope.ServiceProvider.GetRequiredService<IUserContract>();
+        var result2 = await paralellClient2.Execute(x => x.GetTemperatureFromServerWithInput(testModel));
+        logger.LogInformation("Press any key...");
+        Console.ReadKey();
+        var paralellClient3 = scope.ServiceProvider.GetRequiredService<IChildUserContract>();
+        var result3 = await paralellClient3.Execute(x => x.GetTemperatureFromServerWithInput(testModel));
+        logger.LogInformation("Press any key...");
+        Console.ReadKey();
+
+        
+        
         await TestWebSocketConnectionFeatures(logger, client);
         await Task.Delay(100);
         await TestHubconResponse(client2, logger);
@@ -120,36 +133,36 @@ internal class Program
             MaxDegreeOfParallelism = 1000
         };
         
-        await WarmUpClients(scope);
-        
-        var stats = new LatencyHistogram();
-        
-        await TestLatency(scope, stats);
-        
-        await TestRPS(scope);
+        // await WarmUpClients(scope);
+        //
+        // var stats = new LatencyHistogram();
+        //
+        // await TestLatency(scope, stats);
+        //
+        // await TestRPS(scope);
 
-        // var paralellClient = scope.ServiceProvider.GetRequiredService<IUserContract>();
-        //
-        // var sw = new Stopwatch();
-        // logger.LogInformation("Waiting input to send...");
-        //
-        // while (true)
-        // {
-        //     Console.ReadKey();
-        //     sw.Reset();
-        //     sw.Start();
-        //     logger.LogInformation("Sending...");
-        //     var result = await paralellClient.Execute(x => x.GetMessages(10));
-        //     
-        //     await foreach (var item in result.Data!)
-        //     {
-        //         logger.LogInformation(item);
-        //     }
-        //     
-        //     sw.Stop();
-        //     logger.LogInformation($"Result time: {sw.ElapsedMilliseconds} ms");
-        // }
-        //
+        var paralellClient = scope.ServiceProvider.GetRequiredService<IUserContract>();
+        
+        var sw = new Stopwatch();
+        logger.LogInformation("Waiting input to send...");
+        
+        while (true)
+        {
+            Console.ReadKey();
+            sw.Reset();
+            sw.Start();
+            logger.LogInformation("Sending...");
+            var result = await paralellClient.Execute(x => x.GetMessages(10));
+            
+            await foreach (var item in result.Data!)
+            {
+                logger.LogInformation(item);
+            }
+            
+            sw.Stop();
+            logger.LogInformation($"Result time: {sw.ElapsedMilliseconds} ms");
+        }
+        
         Console.ReadKey();
     }
 
@@ -422,7 +435,7 @@ internal class Program
         if (eventos == 10)
             logger.LogInformation("SSE OK.");
         else
-            throw new Exception("No se recibió la cantidad de eventos SSE pedida.");
+            throw new Exception($"No se recibió la cantidad de eventos SSE pedida. Data: {stream.Error}");
     }
 
     private static async Task TestRemoteCancellation(IUserContract client, ILogger<IUserContract> logger)

@@ -28,19 +28,20 @@ namespace Hubcon.Shared.Core.Extensions
 
         public static (string EndpointGroup, string Endpoint, string FullRoute) GetRoute(this MethodInfo method, bool useHashed)
         {
-            if (_routeCache.TryGetValue(method, out var route))
-            {
-                return route;
-            }
-            else
-            {
-                var cleanName = NamingHelper.GetCleanName(method.DeclaringType!.Name);
-                var resultName = useHashed ? method.GetMethodSignature(true) : method.Name;
-                var fullRoute = "/" + cleanName + "/" + resultName;
-                var combined = (cleanName, resultName, fullRoute);
-                _routeCache.TryAdd(method, combined);
-                return combined;
-            }
+            var cleanName = NamingHelper.GetCleanName(method.DeclaringType!.Name);
+            var resultName = useHashed ? method.GetMethodSignature(true) : method.Name;
+            var fullRoute = "/" + cleanName + "/" + resultName;
+            var combined = (cleanName, resultName, fullRoute);
+            return combined;
+        }
+        
+        public static (string EndpointGroup, string Endpoint, string FullRoute) GetRoute(this MethodInfo method, string controllerName, bool useHashed)
+        {
+            var cleanName = NamingHelper.GetCleanName(controllerName);
+            var resultName = useHashed ? method.GetMethodSignature(true) : method.Name;
+            var fullRoute = "/" + cleanName + "/" + resultName;
+            var combined = (cleanName, resultName, fullRoute);
+            return combined;
         }
 
         // Tipos “permitidos” considerados primitivos para tu caso

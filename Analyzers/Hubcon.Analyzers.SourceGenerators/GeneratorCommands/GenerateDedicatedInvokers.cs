@@ -56,7 +56,7 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
                         $"{endpoint.FullName}_Invoker";
                     var wrapperTypeName =
                         $"{endpoint.FullName}_Request";
-                    var controllerTypeName = controller.Controller.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    var controllerTypeName = endpoint.Contract.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
                     sb.AppendLine($"    public sealed class {invokerClassName} : IEndpointInvoker");
                     sb.AppendLine("    {");
@@ -105,12 +105,12 @@ namespace Hubcon.Analyzers.SourceGenerators.GeneratorCommands
 
                     if (endpoint.ControllerMethod.ReturnsVoid)
                     {
-                        sb.AppendLine($"            typedTarget.{endpoint.Name}({argsStr});");
+                        sb.AppendLine($"            typedTarget.{endpoint.SimpleName}({argsStr});");
                         sb.AppendLine("            return null;");
                     }
                     else
                     {
-                        sb.AppendLine($"            return (object)typedTarget.{endpoint.Name}({argsStr});");
+                        sb.AppendLine($"            return (object)typedTarget.{endpoint.SimpleName}({argsStr});");
                     }
 
                     sb.AppendLine("        }");

@@ -19,6 +19,7 @@ using System.Reflection;
 using System.Text.Json;
 using Hubcon.Server.Core.Extensions;
 using Hubcon.Shared.Core.Extensions;
+using Hubcon.Shared.Core.Tools;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 #pragma warning disable CS1591
@@ -43,11 +44,12 @@ namespace Hubcon.Server.Core.Routing
             var simpleContractName = NamingHelper.GetCleanName(blueprint.ContractName);
             var options = app.Services.GetRequiredService<IInternalServerOptions>();
             var method = (MethodInfo)blueprint.MemberInfo!;
+            
             var transportAttribute = HubconTransportAttribute.GetDefault<HttpTransport>();
 
             var httpSettings = options.GetTransportSettings(transportAttribute);
                 
-            var combinedRoute = method.GetRoute(httpSettings.MethodOverloadingEnabled);
+            var combinedRoute = method.GetRoute(blueprint.SimpleContractName, httpSettings.MethodOverloadingEnabled);
             var route = httpSettings.TransportPrefix + combinedRoute.Endpoint;
             var endpointGroupName = combinedRoute.EndpointGroup;
             
@@ -59,10 +61,11 @@ namespace Hubcon.Server.Core.Routing
                     $"Could not find a suitable delegate for endpoint '{method.Name}', on contract '{blueprint.ContractName}'. This could mean the source generators had an error.");
 
             if (httpSettings.MethodOverloadingEnabled) route = $"{method.GetMethodSignature()}";
-
-            var controllerMethod = blueprint.ControllerType.GetMethod(
+            
+            var controllerMethod = blueprint.ControllerType.FindControllerMethod(
                 method.Name,
-                method.GetParameters().Select(x => x.ParameterType).ToArray());
+                method.GetParameters().Select(x => x.ParameterType).ToArray(),
+                blueprint.ContractType);
 
             var filters = controllerMethod!.GetCustomAttributes()
                 .OfType<UseHttpEndpointFilterAttribute>()
