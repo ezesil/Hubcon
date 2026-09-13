@@ -54,6 +54,7 @@ namespace HubconTestClient.Modules
             });
 
             server.Implements<ISecondTestContract>();
+            server.Implements<IChildUserContract>();
             
             server.ConfigureWebsocketClient((x, services) =>
             {

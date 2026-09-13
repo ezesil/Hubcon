@@ -265,9 +265,9 @@ namespace Hubcon.Client.Core.HubconInvocationContext
             }
 
             // Transport
-            var transportAttributeType = OperationOptions.MemberInfo.GetCustomAttribute<HubconTransportAttribute>() 
+            var transportAttributeType = OperationOptions.MemberInfo.GetCustomAttributes<HubconTransportAttribute>().FirstOrDefault() 
                 ?? OperationOptions?.TransportType 
-                ?? ContractType.GetCustomAttribute<HubconTransportAttribute>() 
+                ?? ContractType.GetCustomAttributes<HubconTransportAttribute>().FirstOrDefault() 
                 ?? contractOptions.TransportType 
                 ?? clientOptions.TransportType;
 
@@ -322,14 +322,14 @@ namespace Hubcon.Client.Core.HubconInvocationContext
             transports.TryAdd(transportAttributeType.GetType(), Transport);
 
             var operationConfigurator = OperationOptions as IOperationConfigurator;
-            var operationLimiter = Member.GetCustomAttribute<RateLimitAttribute>();
+            var operationLimiter = Member.GetCustomAttributes<RateLimitAttribute>().FirstOrDefault();
             if (operationLimiter != null)
             {
                 operationConfigurator?.ConfigureRateBucket(operationLimiter);
             }
             else
             {
-                var limiter = contractType.GetCustomAttribute<RateLimitAttribute>();
+                var limiter = contractType.GetCustomAttributes<RateLimitAttribute>().FirstOrDefault();
                 if (limiter != null)
                 {
                     operationConfigurator?.ConfigureRateBucket(new RateLimitAttribute(limiter.Requests, limiter.MillisecondsToReplenish, limiter.RateTokenLimit, limiter.QueueLimit));
